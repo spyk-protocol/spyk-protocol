@@ -1,0 +1,4 @@
+packages:
+  - 'spyk-sdk'
+  - 'spyk-demo'
+  - 'spyk-web'
