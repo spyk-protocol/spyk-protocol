@@ -74,10 +74,20 @@ yarn add @spyk-protocol/sdk
 Create a `.env` file:
 
 ```env
+# RPC Provider (choose one)
 HELIUS_API_KEY=your_helius_api_key_here
+# OR
+QUICKNODE_URL=https://your-endpoint.quiknode.pro/xxx
+
+# Optional: Compliance (Range Protocol)
+RANGE_API_KEY=your_range_api_key
+ENABLE_COMPLIANCE=true
 ```
 
-Get your Helius API key at [helius.xyz](https://helius.xyz).
+Get your API keys:
+- Helius: [helius.xyz](https://helius.xyz)
+- Quicknode: [quicknode.com](https://quicknode.com)
+- Range: Contact info@range.org
 
 ### SDK Configuration
 
@@ -392,6 +402,95 @@ try {
 | `UNSUPPORTED_TOKEN` | Token not supported by protocol |
 | `INVALID_ADDRESS` | Invalid Solana address |
 | `INVALID_AMOUNT` | Amount must be positive |
+
+## Sponsor Integrations
+
+SPYK integrates multiple privacy and infrastructure sponsors:
+
+### Arcium - Encrypted DeFi
+
+```typescript
+import { SpykArcium } from '@spyk-protocol/sdk';
+
+const arcium = new SpykArcium({
+  connection,
+  wallet,
+  cluster: 'devnet',
+});
+
+// Private swap with hidden amounts
+await arcium.swap.executePrivate({
+  tokenIn: 'USDC',
+  tokenOut: 'SOL',
+  amountIn: 100,  // Encrypted on-chain
+});
+
+// Confidential lending
+await arcium.lending.depositPrivate({
+  token: 'USDC',
+  amount: 1000,  // Hidden from observers
+});
+```
+
+### Noir/Sunspot - ZK Proofs
+
+```typescript
+import { noir } from '@spyk-protocol/sdk';
+
+// Create prover for OFAC compliance
+const prover = noir.createNoirProver();
+
+// Generate non-membership proof
+const result = await prover.proveCompliance(address);
+
+if (result.passed) {
+  // Verify on-chain
+  const verifier = noir.createNoirVerifier(connection, wallet, {
+    verifierProgramId: VERIFIER_PROGRAM_ID,
+  });
+  await verifier.verifyOnChain(result.noirProof);
+}
+```
+
+### Range - Compliance Pre-Screening
+
+```typescript
+import { RangeCompliance } from '@spyk-protocol/sdk';
+
+const compliance = new RangeCompliance({
+  apiKey: process.env.RANGE_API_KEY,
+});
+
+// Pre-screen before payment
+const check = await compliance.preScreen(recipientAddress);
+
+if (check.passed) {
+  await spyk.transfer({ to: recipientAddress, amount: 1, token: 'SOL' });
+} else {
+  console.log('Address flagged:', check.reason);
+}
+```
+
+### Multi-Provider RPC (Helius + Quicknode)
+
+```typescript
+import { Spyk } from '@spyk-protocol/sdk';
+
+// Use Helius
+const spykHelius = new Spyk({
+  heliusApiKey: process.env.HELIUS_API_KEY,
+  network: 'mainnet',
+  wallet,
+});
+
+// Or use Quicknode
+const spykQuicknode = new Spyk({
+  rpcProvider: 'quicknode',
+  quicknodeUrl: process.env.QUICKNODE_URL,
+  network: 'mainnet',
+  wallet,
+});
+```
 
 ## For AI Agents
 
