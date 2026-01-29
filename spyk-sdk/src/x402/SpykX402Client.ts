@@ -1,6 +1,7 @@
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import type { X402Invoice, X402PaymentResult, X402Facilitator } from './types.js';
 import { MockX402Facilitator } from './MockX402Facilitator.js';
+import type { ComplianceChecker, ComplianceResult } from '../compliance/types.js';
 
 /** SOL amount for transaction fees */
 const ESTIMATED_TX_FEES_SOL = 0.001;
@@ -22,6 +23,16 @@ interface ShadowWireLike {
 export interface SpykX402ClientConfig {
   useMockFacilitator?: boolean;
   logPayments?: boolean;
+  /**
+   * Optional compliance checker for pre-payment screening
+   * IMPORTANT: Compliance is OPT-IN only. If not provided, no screening occurs.
+   */
+  complianceChecker?: ComplianceChecker;
+  /**
+   * Enable compliance checking (requires complianceChecker to be set)
+   * Default: false
+   */
+  enableCompliance?: boolean;
 }
 
 /**
@@ -38,6 +49,8 @@ export interface SpykX402ClientConfig {
  */
 export class SpykX402Client {
   private facilitator: X402Facilitator | null = null;
+  private complianceChecker: ComplianceChecker | null = null;
+  private complianceEnabled: boolean = false;
 
   constructor(
     private privacyCash: PrivacyCashLike,
@@ -49,6 +62,12 @@ export class SpykX402Client {
     if (config.useMockFacilitator || process.env.SPYK_USE_MOCK_FACILITATOR === 'true') {
       this.facilitator = new MockX402Facilitator({ logPayments: config.logPayments });
     }
+
+    // Configure compliance checker (OPT-IN only)
+    if (config.complianceChecker && config.enableCompliance) {
+      this.complianceChecker = config.complianceChecker;
+      this.complianceEnabled = true;
+    }
   }
 
   /**
@@ -56,6 +75,31 @@ export class SpykX402Client {
    */
   setFacilitator(facilitator: X402Facilitator): void {
     this.facilitator = facilitator;
+  }
+
+  /**
+   * Set the compliance checker for pre-payment screening
+   * @param checker - The compliance checker implementation
+   * @param enabled - Whether to enable compliance checking (default: true)
+   */
+  setComplianceChecker(checker: ComplianceChecker, enabled: boolean = true): void {
+    this.complianceChecker = checker;
+    this.complianceEnabled = enabled;
+  }
+
+  /**
+   * Enable or disable compliance checking
+   * @param enabled - Whether compliance checking should be active
+   */
+  setComplianceEnabled(enabled: boolean): void {
+    this.complianceEnabled = enabled;
+  }
+
+  /**
+   * Check if compliance checking is enabled
+   */
+  isComplianceEnabled(): boolean {
+    return this.complianceEnabled && this.complianceChecker !== null;
   }
 
   /**
@@ -97,11 +141,39 @@ export class SpykX402Client {
    * @returns Payment result with signature and ephemeral address used
    * @throws Error if insufficient shielded balance or facilitator not configured
    */
-  async payPrivately(invoice: X402Invoice): Promise<X402PaymentResult> {
+  async payPrivately(invoice: X402Invoice): Promise<X402PaymentResult & { complianceResult?: ComplianceResult }> {
     if (!this.facilitator) {
       throw new Error(
         'No facilitator configured. Call setFacilitator() or set useMockFacilitator in config.'
       );
+    }
+
+    // 0. Compliance pre-screening (if enabled)
+    let complianceResult: ComplianceResult | undefined;
+    if (this.complianceEnabled && this.complianceChecker) {
+      if (this.config.logPayments) {
+        console.log('[SPYK] Running compliance pre-screen for:', invoice.recipient);
+      }
+
+      complianceResult = await this.complianceChecker.preScreen(
+        invoice.recipient,
+        invoice.network === 'mainnet-beta' ? 'solana' : 'solana-devnet'
+      );
+
+      if (this.config.logPayments) {
+        console.log('[SPYK] Compliance result:', {
+          compliant: complianceResult.compliant,
+          riskLevel: complianceResult.riskLevel,
+        });
+      }
+
+      // If not compliant, the checker will throw ComplianceError
+      // We still check here for safety in case rejectHighRisk was disabled
+      if (!complianceResult.compliant) {
+        throw new Error(
+          `Payment blocked: recipient ${invoice.recipient} failed compliance check - ${complianceResult.reason}`
+        );
+      }
     }
 
     // 1. Check shielded balance
@@ -150,6 +222,7 @@ export class SpykX402Client {
       proof,
       ephemeralUsed: ephemeralAddress,
       withdrawalSignature: withdrawResult.signature,
+      complianceResult,
     };
   }
 

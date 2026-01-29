@@ -8,27 +8,18 @@
  * - Proof generation via Sunspot prover
  * - On-chain verification via CPI to ZK verifier
  *
- * WARNING: This is EXPERIMENTAL and NOT AUDITED.
- * Enable only with { experimental: { noirProofs: true } }
- *
  * @example
  * ```typescript
- * import { Spyk } from '@spyk/sdk';
- * import { createNoirProver, createNoirVerifier } from '@spyk/sdk/experimental/noir';
- *
- * // Enable experimental features
- * const config = {
- *   experimental: { noirProofs: true }
- * };
+ * import { noir } from '@spyk-protocol/sdk';
  *
  * // Create prover
- * const prover = createNoirProver(config.experimental);
+ * const prover = noir.createNoirProver();
  *
  * // Generate compliance proof
  * const result = await prover.proveCompliance(address);
  * if (result.passed && result.noirProof) {
  *   // Verify on-chain
- *   const verifier = createNoirVerifier(config.experimental, connection, wallet, {
+ *   const verifier = noir.createNoirVerifier(connection, wallet, {
  *     verifierProgramId: VERIFIER_PROGRAM_ID
  *   });
  *   const verification = await verifier.verifyOnChain(result.noirProof);
