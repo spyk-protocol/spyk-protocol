@@ -1,0 +1,49 @@
+{
+  "name": "@spyk-protocol/sdk",
+  "version": "0.1.0",
+  "description": "Privacy SDK for Spyk Protocol on Solana",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "vitest",
+    "test:smoke": "tsx test/smoke-test.ts"
+  },
+  "keywords": [
+    "solana",
+    "privacy",
+    "spyk",
+    "sdk",
+    "blockchain"
+  ],
+  "author": "Spyk Protocol",
+  "license": "MIT",
+  "dependencies": {
+    "@noble/ed25519": "^3.0.0",
+    "@radr/shadowwire": "^1.1.15",
+    "@solana/web3.js": "^1.95.8",
+    "helius-sdk": "^1.5.1",
+    "privacycash": "^1.1.11",
+    "x402-solana": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsup": "^8.3.5",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
