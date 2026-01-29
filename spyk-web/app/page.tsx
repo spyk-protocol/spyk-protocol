@@ -1,6 +1,7 @@
 import {
   Header,
   NetworkStatus,
+  PaySection,
   DepositSection,
   WithdrawSection,
   TransferSection,
@@ -15,6 +16,7 @@ export default function Home() {
         <NetworkStatus />
 
         <main className="p-6 space-y-6">
+          <PaySection />
           <DepositSection />
           <WithdrawSection />
           <TransferSection />
