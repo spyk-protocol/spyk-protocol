@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "spyk": {
+      "command": "node",
+      "args": ["/path/to/spyk-sdk/mcp/dist/index.js"],
+      "env": {
+        "SPYK_NETWORK": "devnet",
+        "SPYK_KEYPAIR_PATH": "~/.config/solana/id.json",
+        "SPYK_USE_MOCK_FACILITATOR": "true"
+      }
+    }
+  }
+}
