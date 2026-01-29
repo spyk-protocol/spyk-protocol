@@ -64,30 +64,49 @@ Transaction: https://solscan.io/tx/...
 
 ---
 
-### Part 2: Private Transfer (1:15 - 2:00)
+### Part 2: x402 Private AI Payment (1:15 - 2:15) ⭐ KEY DEMO
 
 **[Run command]**
 ```bash
-pnpm dev transfer <recipient_address> 0.2
+pnpm dev pay https://api.claude.ai/v1/messages --mock
 ```
 
 **[Narrate while loading]**
 
-> "Now let's do a private transfer using ShadowWire. This creates an ephemeral address just for this transaction."
+> "Now the key feature - x402 private AI payments. Watch how we pay an API without revealing our wallet."
 
 **[Show output]**
 ```
-🔒 Private transfer of 0.2 SOL...
-✓ Transferred 0.2 SOL!
-From ephemeral: 7xK2...abc (one-time use)
-Transaction: https://solscan.io/tx/...
+🤖 SPYK x402 - Private AI Payment
+
+━━━ The Problem ━━━
+Normal payment: Your wallet → API Provider
+  ⚠ Your wallet is permanently linked on-chain
+  ⚠ Competitors can see which APIs you use
+
+━━━ SPYK Solution ━━━
+1. Shield funds into ZK pool (Privacy Cash)
+2. Generate ephemeral keypair (one-time use)
+3. Withdraw to ephemeral address
+4. Pay API from ephemeral (no link to you!)
+
+📄 Invoice received:
+   Amount: 0.001 SOL
+   Recipient: DemoAPI...
+
+✅ Private Payment Complete!
+
+━━━ Privacy Summary ━━━
+Your wallet:     (hidden)
+Ephemeral used:  7xK2abc...
+On-chain link:   NONE ✓
 ```
 
-> "The recipient sees payment from a random address. My real wallet? Never appears on-chain."
+> "The API got paid, but from a one-time ephemeral address. My real wallet never appears. Competitors see nothing."
 
 ---
 
-### Part 3: Show SDK Code (2:00 - 2:30)
+### Part 3: Show SDK Code (2:15 - 2:40)
 
 **[Show code editor with this snippet]**
 
@@ -122,7 +141,7 @@ await prover.proveCompliance(address);
 
 ---
 
-### Part 4: Sponsor Integrations (2:30 - 2:50)
+### Part 4: Sponsor Integrations (2:40 - 2:55)
 
 **[Show terminal or slide]**
 
@@ -144,7 +163,7 @@ await prover.proveCompliance(address);
 
 ---
 
-### Closing (2:50 - 3:00)
+### Closing (2:55 - 3:00)
 
 > "SPYK Protocol: Private AI payments on Solana.
 >
