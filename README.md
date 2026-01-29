@@ -94,6 +94,46 @@ const dataResponse = await fetch('https://api.example.com/data', {
 });
 ```
 
+## Why Privacy Matters for AI Payments
+
+Understanding the surveillance implications of on-chain transactions is crucial for web3 adoption. When organizations and individuals use AI APIs through blockchain-based payment systems, they unknowingly expose strategic intelligence to anyone watching the chain.
+
+### The Surveillance Problem
+
+Every Solana transaction is permanently public and indexed. When your AI agent makes a payment:
+
+- **The recipient is visible** - everyone knows which API you're using
+- **The amount is visible** - your spend patterns are exposed
+- **The frequency is trackable** - usage patterns reveal business activity
+- **Your wallet links everything** - all payments tied to one identity
+
+Unlike traditional payment systems where your bank statements are private, blockchain transactions create a permanent, searchable record. On-chain analysis tools and block explorers make it trivial for anyone - competitors, researchers, or adversaries - to reconstruct your entire payment history.
+
+### What Competitors Can Learn
+
+On-chain analysis of your AI payments reveals competitive intelligence you likely consider confidential:
+
+- **Service Selection**: Which AI providers you rely on (Claude, GPT-4, Gemini)
+- **Spend Levels**: Your compute budget reveals your operational scale
+- **Usage Patterns**: Peak times, growth trends, and seasonal patterns
+- **Business Intelligence**: Infer your product roadmap from API choices
+
+**Real-world example**: If a competitor monitors your wallet and sees payments to Claude API averaging $10k/month, then a sudden switch to GPT-4 with increased spending, they know you're testing alternatives or scaling a new feature. If payments to image generation APIs spike, they know you're building visual capabilities before you announce anything.
+
+This surveillance works both ways. Your wallet activity is also visible to the APIs you're paying - they can see your other service usage, your financial patterns, and potentially identify you even if you haven't shared personal information.
+
+### How SPYK Breaks the Link
+
+SPYK uses a three-layer approach to sever the connection between your identity and your AI payments:
+
+1. **Shielded Source**: Your funds enter a zero-knowledge pool via Privacy Cash. Deposits and withdrawals are cryptographically unlinkable - observers cannot connect your deposit to any subsequent withdrawal.
+
+2. **Ephemeral Addresses**: Each payment uses a freshly generated keypair that exists only for that transaction. After the payment, the keypair is discarded and never reused.
+
+3. **Pattern Obfuscation**: Multiple payments from your organization appear as completely unrelated transactions from different addresses. There's no wallet to track, no pattern to analyze.
+
+**Result**: Your AI API payments become private business decisions. The recipient receives valid payment from a one-time address. On-chain observers see random, disconnected transactions. Your competitive intelligence stays yours.
+
 ### Claude Code Integration
 
 SPYK provides an MCP server for Claude Code integration:
@@ -216,6 +256,50 @@ const balance = await connection.getBalance(publicKey);
 
 **Website:** [helius.xyz](https://helius.xyz)
 
+### Quicknode
+
+Alternative high-performance Solana RPC provider with global infrastructure.
+
+**Integration:**
+```typescript
+import { createQuicknodeConnection } from '@spyk-protocol/sdk';
+
+const connection = createQuicknodeConnection({
+  endpointUrl: process.env.QUICKNODE_URL!,
+});
+
+// Use for all Solana transactions
+const balance = await connection.getBalance(publicKey);
+```
+
+**Key Features:**
+- Multi-chain support (Solana + 20+ chains)
+- Global edge network
+- Built-in analytics
+- Websocket streaming
+
+**Website:** [quicknode.com](https://quicknode.com)
+
+### Starpay
+
+Privacy-focused payments and card issuance for the Solana ecosystem.
+
+**Synergy with SPYK:**
+SPYK enables private AI payments where the source wallet is hidden. Starpay extends this by enabling private *spending* of earnings - users can convert privacy-preserved funds to fiat or spend via virtual cards without revealing on-chain history.
+
+**Integration Points:**
+- x402 payment receipts can flow into Starpay for fiat off-ramp
+- ZK swap compatibility for token conversion
+- Card issuance for real-world spending of shielded funds
+
+**Key Features:**
+- Privacy-focused card issuance
+- ZK swap support
+- Fiat on/off ramp with privacy
+- No KYC for small amounts (jurisdiction-dependent)
+
+**Website:** [starpay.cards](https://www.starpay.cards)
+
 ### x402 Protocol
 
 HTTP 402 Payment Required standard for pay-per-use APIs.
@@ -313,19 +397,29 @@ pnpm build
 Create a `.env` file in the SDK directory:
 
 ```bash
-# Helius RPC (required)
+# RPC Provider (choose one)
+# Option 1: Helius (recommended)
 HELIUS_API_KEY=your_helius_api_key
+
+# Option 2: Quicknode (alternative)
+# QUICKNODE_URL=https://your-endpoint.solana-mainnet.quiknode.pro/your-api-key/
+
+# Option 3: Custom RPC
+# SOLANA_RPC_URL=https://your-custom-rpc.example.com
 
 # Wallet (for development)
 SPYK_PRIVATE_KEY=your_base58_private_key
 # OR
 SPYK_KEYPAIR_PATH=~/.config/solana/id.json
 
-# Network
+# Network (for Helius - Quicknode uses endpoint URL)
 SPYK_NETWORK=devnet  # or mainnet
 
 # x402 Testing
 SPYK_USE_MOCK_FACILITATOR=true  # Enable mock payments
+
+# Compliance (optional - leave commented to disable)
+# RANGE_API_KEY=your_range_api_key  # OFAC/sanctions screening
 ```
 
 ## Demo Applications
@@ -432,4 +526,6 @@ MIT License - see [LICENSE](./LICENSE) for details.
 - **Privacy Cash**: [privacycash.net](https://privacycash.net)
 - **ShadowWire**: [github.com/radrdotfun/ShadowWire](https://github.com/radrdotfun/ShadowWire)
 - **Helius**: [helius.xyz](https://helius.xyz)
+- **Quicknode**: [quicknode.com](https://quicknode.com)
+- **Starpay**: [starpay.cards](https://www.starpay.cards)
 - **x402 Protocol**: [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-15.5.3)
