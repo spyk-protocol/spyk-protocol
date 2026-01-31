@@ -40,7 +40,7 @@ SPYK_KEYPAIR_PATH=~/.config/solana/id.json
 
 ### 3. Add to Claude Code
 
-Add to your Claude Code settings (`~/.claude/settings.json`):
+Create a `.mcp.json` file in your project root:
 
 ```json
 {
@@ -48,6 +48,24 @@ Add to your Claude Code settings (`~/.claude/settings.json`):
     "spyk": {
       "command": "node",
       "args": ["/absolute/path/to/spyk-sdk/mcp/dist/index.js"],
+      "env": {
+        "SPYK_NETWORK": "devnet",
+        "SPYK_KEYPAIR_PATH": "~/.config/solana/id.json",
+        "SPYK_USE_MOCK_FACILITATOR": "true"
+      }
+    }
+  }
+}
+```
+
+**Example with real path:**
+
+```json
+{
+  "mcpServers": {
+    "spyk": {
+      "command": "node",
+      "args": ["/Users/yourname/projects/spyk-sdk/mcp/dist/index.js"],
       "env": {
         "SPYK_NETWORK": "devnet",
         "SPYK_KEYPAIR_PATH": "~/.config/solana/id.json",
