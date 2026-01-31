@@ -1,4 +1,4 @@
-import type { X402Invoice, X402Facilitator } from './types.js';
+import type { X402Invoice, X402Facilitator } from './types';
 
 export interface MockFacilitatorConfig {
   logPayments?: boolean;

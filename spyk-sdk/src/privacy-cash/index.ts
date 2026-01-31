@@ -332,3 +332,6 @@ export class SpykPrivacyCash {
     await this.privacyCashClient.clearCache();
   }
 }
+
+// Export mock for devnet testing
+export { MockPrivacyCash, type MockPrivacyCashConfig } from './mock';

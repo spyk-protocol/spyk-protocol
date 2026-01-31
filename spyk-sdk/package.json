@@ -13,8 +13,8 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "vitest",
     "test:smoke": "tsx test/smoke-test.ts"
   },
@@ -23,16 +23,24 @@
     "privacy",
     "spyk",
     "sdk",
-    "blockchain"
+    "blockchain",
+    "arcium",
+    "mpc",
+    "encrypted-defi",
+    "confidential-computing"
   ],
   "author": "Spyk Protocol",
   "license": "MIT",
   "dependencies": {
+    "@arcium-hq/client": "^0.6.5",
+    "@arcium-hq/reader": "^0.6.5",
+    "@coral-xyz/anchor": "^0.32.1",
     "@noble/ed25519": "^3.0.0",
     "@radr/shadowwire": "^1.1.15",
     "@solana/web3.js": "^1.95.8",
     "helius-sdk": "^1.5.1",
     "privacycash": "^1.1.11",
+    "tweetnacl": "^1.0.3",
     "x402-solana": "^2.0.1"
   },
   "devDependencies": {

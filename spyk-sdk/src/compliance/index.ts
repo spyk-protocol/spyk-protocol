@@ -12,10 +12,10 @@ export type {
   ComplianceChecker,
   RangeComplianceConfig,
   RiskLevel,
-} from './types.js';
+} from './types';
 
 // Error export
-export { ComplianceError } from './types.js';
+export { ComplianceError } from './types';
 
 // Implementation exports
-export { RangeCompliance, MockRangeCompliance } from './range.js';
+export { RangeCompliance, MockRangeCompliance } from './range';

@@ -1,7 +1,7 @@
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
-import type { X402Invoice, X402PaymentResult, X402Facilitator } from './types.js';
-import { MockX402Facilitator } from './MockX402Facilitator.js';
-import type { ComplianceChecker, ComplianceResult } from '../compliance/types.js';
+import type { X402Invoice, X402PaymentResult, X402Facilitator } from './types';
+import { MockX402Facilitator } from './MockX402Facilitator';
+import type { ComplianceChecker, ComplianceResult } from '../compliance/types';
 
 /** SOL amount for transaction fees */
 const ESTIMATED_TX_FEES_SOL = 0.001;

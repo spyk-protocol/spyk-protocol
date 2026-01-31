@@ -14,8 +14,12 @@ import {
   UnsupportedTokenError,
 } from './types';
 import { createConnection } from './utils/connection';
-import { SpykPrivacyCash } from './privacy-cash';
+import { SpykPrivacyCash, MockPrivacyCash, type MockPrivacyCashConfig } from './privacy-cash';
 import { SpykShadowWire, TransferParams } from './shadowwire';
+import { SpykX402Client, type SpykX402ClientConfig } from './x402';
+
+/** Privacy Cash implementation interface (real or mock) */
+type PrivacyCashLike = SpykPrivacyCash | MockPrivacyCash;
 
 // ============================================
 // Constants
@@ -79,12 +83,26 @@ export interface AggregatedBalances {
  * await spyk.withdraw('USDC', 50);
  * ```
  */
+/** Extended config with mock options */
+export interface SpykOptions {
+  /** x402 client configuration */
+  x402?: SpykX402ClientConfig;
+  /** Mock Privacy Cash for devnet (Privacy Cash has no devnet relayer) */
+  mockPrivacyCash?: boolean | MockPrivacyCashConfig;
+}
+
 export class Spyk {
-  /** Privacy Cash protocol wrapper (SOL/USDC shielding) */
-  public readonly privacyCash: SpykPrivacyCash;
+  /** Privacy Cash protocol wrapper (SOL/USDC shielding) - real or mock */
+  public readonly privacyCash: PrivacyCashLike;
 
   /** ShadowWire protocol wrapper (multi-token private transfers) */
   public readonly shadowWire: SpykShadowWire;
+
+  /** x402 private AI payment client */
+  public readonly x402: SpykX402Client;
+
+  /** Whether using mock Privacy Cash */
+  public readonly isMockMode: boolean;
 
   private connection: Connection;
   private config: SpykConfig;
@@ -92,12 +110,41 @@ export class Spyk {
   /**
    * Create a new Spyk instance
    * @param config - SDK configuration with RPC provider, network, and wallet
+   * @param options - Optional configuration for x402 and mock mode
    */
-  constructor(config: SpykConfig) {
+  constructor(config: SpykConfig, options: SpykOptions = {}) {
     this.config = config;
     this.connection = createConnection(config);
-    this.privacyCash = new SpykPrivacyCash(config, this.connection);
+
+    // Determine if we should use mock Privacy Cash
+    // Auto-enable mock on devnet unless explicitly disabled
+    const useMock = options.mockPrivacyCash !== undefined
+      ? Boolean(options.mockPrivacyCash)
+      : config.network === 'devnet';
+
+    this.isMockMode = useMock;
+
+    if (useMock) {
+      // Use mock Privacy Cash for devnet
+      const mockConfig = typeof options.mockPrivacyCash === 'object'
+        ? options.mockPrivacyCash
+        : { logOperations: true, simulateProofDelay: 1500 };
+      this.privacyCash = new MockPrivacyCash(config, this.connection, mockConfig);
+      console.log('[Spyk] Using MockPrivacyCash (devnet mode - Privacy Cash has no devnet relayer)');
+    } else {
+      // Use real Privacy Cash for mainnet
+      this.privacyCash = new SpykPrivacyCash(config, this.connection);
+    }
+
     this.shadowWire = new SpykShadowWire(config, this.connection);
+
+    // Initialize x402 client with privacy cash and shadowwire
+    this.x402 = new SpykX402Client(
+      this.privacyCash as any,
+      this.shadowWire as unknown as { sendPrivateTransfer(amount: bigint, recipient: string): Promise<string> },
+      this.connection,
+      options.x402 || {}
+    );
   }
 
   /**

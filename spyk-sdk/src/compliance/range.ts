@@ -18,8 +18,8 @@ import type {
   ComplianceResult,
   RangeComplianceConfig,
   RiskLevel,
-} from './types.js';
-import { ComplianceError } from './types.js';
+} from './types';
+import { ComplianceError } from './types';
 
 /**
  * Default Range API base URL
