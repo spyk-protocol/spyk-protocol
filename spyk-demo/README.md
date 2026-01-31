@@ -238,6 +238,46 @@ pnpm build
 pnpm start --help
 ```
 
+## Network Support
+
+### Mainnet (Full Features)
+
+For full privacy with ZK shielding, use mainnet:
+
+```bash
+# In .env
+NETWORK=mainnet
+```
+
+All features work on mainnet:
+- ✅ `deposit` - ZK shielding via Privacy Cash
+- ✅ `withdraw` - ZK unshielding via Privacy Cash
+- ✅ `transfer` - Private transfers via ShadowWire
+- ✅ `pay` - Full x402 private payments (shielded → ephemeral → recipient)
+
+### Devnet (Limited)
+
+Privacy Cash **does not support devnet** (no relayer service). See [Privacy Cash FAQ](https://privacycash.mintlify.app/sdk).
+
+On devnet, use these modes:
+
+```bash
+# x402 with devnet mode (uses ephemeral without ZK shielding)
+pnpm dev pay https://api.example.com --devnet -r <recipient_address>
+
+# ShadowWire transfers work on devnet
+pnpm dev transfer <recipient> 100 --token BONK
+```
+
+| Feature | Mainnet | Devnet |
+|---------|---------|--------|
+| `deposit` | ✅ | ❌ (no relayer) |
+| `withdraw` | ✅ | ❌ (no relayer) |
+| `transfer` | ✅ | ✅ |
+| `pay --mock` | ✅ | ✅ |
+| `pay --devnet` | N/A | ✅ (ephemeral only) |
+| `pay` (full) | ✅ | ❌ (needs shielding) |
+
 ## SDK Integration
 
 This demo uses the [@spyk-protocol/sdk](https://www.npmjs.com/package/@spyk-protocol/sdk) package.

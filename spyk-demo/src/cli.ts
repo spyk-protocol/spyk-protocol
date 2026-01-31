@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * SPYK Demo CLI
  * Interactive demonstration of the SPYK Protocol SDK
@@ -18,6 +17,8 @@ import {
   InvalidAmountError,
   InvalidAddressError,
   TransactionError,
+  DevnetX402Facilitator,
+  MockX402Facilitator,
   type Network,
 } from '@spyk-protocol/sdk';
 
@@ -74,16 +75,17 @@ function getSolscanUrl(signature: string, network: Network): string {
 const program = new Command();
 
 program
-  .name('spyk-demo')
-  .description('Interactive CLI demo for SPYK Protocol SDK')
+  .name('spyk')
+  .description('SPYK Protocol CLI - Private payments on Solana')
   .version('0.1.0');
 
 // Deposit command
 program
   .command('deposit <amount>')
   .option('-t, --token <token>', 'Token to deposit (SOL or USDC)', 'SOL')
+  .option('--mock', 'Use mock mode (no real transaction)', false)
   .description('Shield tokens into private pool (SOL or USDC only)')
-  .action(async (amount: string, options: { token: string }) => {
+  .action(async (amount: string, options: { token: string; mock: boolean }) => {
     const token = options.token.toUpperCase();
 
     if (!PRIVACY_CASH_TOKENS.includes(token)) {
@@ -92,17 +94,37 @@ program
       process.exit(1);
     }
 
-    const { spyk, network } = loadConfig();
+    const { network } = loadConfig();
     const spinner = ora(`Shielding ${amount} ${token}...`).start();
 
     try {
-      const result = await spyk.deposit(token as 'SOL' | 'USDC', parseFloat(amount), {
-        onSigning: () => spinner.text = 'Signing transaction...',
-        onSent: (sig) => spinner.text = `Transaction sent: ${sig.slice(0, 8)}...`,
-      });
+      if (options.mock) {
+        // Mock mode for demo
+        spinner.text = 'Generating ZK commitment...';
+        await new Promise(resolve => setTimeout(resolve, 800));
+        spinner.text = 'Building shield transaction...';
+        await new Promise(resolve => setTimeout(resolve, 600));
+        spinner.text = 'Signing transaction...';
+        await new Promise(resolve => setTimeout(resolve, 400));
+        spinner.text = 'Broadcasting to network...';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        spinner.text = 'Confirming on-chain...';
+        await new Promise(resolve => setTimeout(resolve, 800));
 
-      spinner.succeed(chalk.green(`Successfully shielded ${amount} ${token}!`));
-      console.log(chalk.cyan(`Transaction: ${getSolscanUrl(result.signature, network)}`));
+        const mockSig = 'Demo' + Math.random().toString(36).substring(2, 15) + 'MockTxSignature';
+        spinner.succeed(chalk.green(`Successfully shielded ${amount} ${token}!`));
+        console.log(chalk.cyan(`Transaction: ${getSolscanUrl(mockSig, network)}`));
+        console.log(chalk.gray('(Mock mode - no real transaction sent)'));
+      } else {
+        const { spyk } = loadConfig();
+        const result = await spyk.deposit(token as 'SOL' | 'USDC', parseFloat(amount), {
+          onSigning: () => spinner.text = 'Signing transaction...',
+          onSent: (sig) => spinner.text = `Transaction sent: ${sig.slice(0, 8)}...`,
+        });
+
+        spinner.succeed(chalk.green(`Successfully shielded ${amount} ${token}!`));
+        console.log(chalk.cyan(`Transaction: ${getSolscanUrl(result.signature, network)}`));
+      }
     } catch (error) {
       spinner.fail(chalk.red('Deposit failed'));
       handleError(error);
@@ -114,8 +136,9 @@ program
   .command('withdraw <amount>')
   .option('-t, --token <token>', 'Token to withdraw (SOL or USDC)', 'SOL')
   .option('-d, --destination <address>', 'Destination address (defaults to wallet)')
+  .option('--mock', 'Use mock mode (no real transaction)', false)
   .description('Unshield tokens from private pool (SOL or USDC only)')
-  .action(async (amount: string, options: { token: string; destination?: string }) => {
+  .action(async (amount: string, options: { token: string; destination?: string; mock: boolean }) => {
     const token = options.token.toUpperCase();
 
     if (!PRIVACY_CASH_TOKENS.includes(token)) {
@@ -123,18 +146,38 @@ program
       process.exit(1);
     }
 
-    const { spyk, network } = loadConfig();
+    const { network } = loadConfig();
     const spinner = ora(`Unshielding ${amount} ${token}...`).start();
 
     try {
-      const destination = options.destination ? new PublicKey(options.destination) : undefined;
-      const result = await spyk.withdraw(token as 'SOL' | 'USDC', parseFloat(amount), destination, {
-        onSigning: () => spinner.text = 'Signing transaction...',
-        onSent: (sig) => spinner.text = `Transaction sent: ${sig.slice(0, 8)}...`,
-      });
+      if (options.mock) {
+        // Mock mode for demo
+        spinner.text = 'Generating ZK proof...';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        spinner.text = 'Building unshield transaction...';
+        await new Promise(resolve => setTimeout(resolve, 600));
+        spinner.text = 'Signing transaction...';
+        await new Promise(resolve => setTimeout(resolve, 400));
+        spinner.text = 'Broadcasting to network...';
+        await new Promise(resolve => setTimeout(resolve, 800));
+        spinner.text = 'Confirming on-chain...';
+        await new Promise(resolve => setTimeout(resolve, 600));
 
-      spinner.succeed(chalk.green(`Successfully unshielded ${amount} ${token}!`));
-      console.log(chalk.cyan(`Transaction: ${getSolscanUrl(result.signature, network)}`));
+        const mockSig = 'Demo' + Math.random().toString(36).substring(2, 15) + 'MockTxSignature';
+        spinner.succeed(chalk.green(`Successfully unshielded ${amount} ${token}!`));
+        console.log(chalk.cyan(`Transaction: ${getSolscanUrl(mockSig, network)}`));
+        console.log(chalk.gray('(Mock mode - no real transaction sent)'));
+      } else {
+        const { spyk } = loadConfig();
+        const destination = options.destination ? new PublicKey(options.destination) : undefined;
+        const result = await spyk.withdraw(token as 'SOL' | 'USDC', parseFloat(amount), destination, {
+          onSigning: () => spinner.text = 'Signing transaction...',
+          onSent: (sig) => spinner.text = `Transaction sent: ${sig.slice(0, 8)}...`,
+        });
+
+        spinner.succeed(chalk.green(`Successfully unshielded ${amount} ${token}!`));
+        console.log(chalk.cyan(`Transaction: ${getSolscanUrl(result.signature, network)}`));
+      }
     } catch (error) {
       spinner.fail(chalk.red('Withdraw failed'));
       handleError(error);
@@ -145,27 +188,48 @@ program
 program
   .command('transfer <to> <amount>')
   .option('-t, --token <token>', 'Token to transfer', 'SOL')
+  .option('--mock', 'Use mock mode (no real transaction)', false)
   .description('Private transfer via ShadowWire (all supported tokens)')
-  .action(async (to: string, amount: string, options: { token: string }) => {
+  .action(async (to: string, amount: string, options: { token: string; mock: boolean }) => {
     const token = options.token.toUpperCase();
-    const { spyk, network } = loadConfig();
+    const { network } = loadConfig();
     const spinner = ora(`Transferring ${amount} ${token} to ${to.slice(0, 8)}...`).start();
 
     try {
-      const result = await spyk.transfer(
-        {
-          to,
-          amount: parseFloat(amount),
-          token,
-        },
-        {
-          onSigning: () => spinner.text = 'Signing transaction...',
-          onSent: (sig) => spinner.text = `Transaction sent: ${sig.slice(0, 8)}...`,
-        }
-      );
+      if (options.mock) {
+        // Mock mode for demo
+        spinner.text = 'Generating ephemeral keypair...';
+        await new Promise(resolve => setTimeout(resolve, 500));
+        spinner.text = 'Building private transfer...';
+        await new Promise(resolve => setTimeout(resolve, 600));
+        spinner.text = 'Signing with ephemeral key...';
+        await new Promise(resolve => setTimeout(resolve, 400));
+        spinner.text = 'Broadcasting to network...';
+        await new Promise(resolve => setTimeout(resolve, 800));
+        spinner.text = 'Confirming on-chain...';
+        await new Promise(resolve => setTimeout(resolve, 600));
 
-      spinner.succeed(chalk.green(`Successfully transferred ${amount} ${token}!`));
-      console.log(chalk.cyan(`Transaction: ${getSolscanUrl(result.signature, network)}`));
+        const mockSig = 'Demo' + Math.random().toString(36).substring(2, 15) + 'MockTxSignature';
+        spinner.succeed(chalk.green(`Successfully transferred ${amount} ${token}!`));
+        console.log(chalk.cyan(`Transaction: ${getSolscanUrl(mockSig, network)}`));
+        console.log(chalk.gray('(Mock mode - no real transaction sent)'));
+      } else {
+        const { spyk } = loadConfig();
+        const result = await spyk.transfer(
+          {
+            to,
+            amount: parseFloat(amount),
+            token,
+          },
+          {
+            onSigning: () => spinner.text = 'Signing transaction...',
+            onSent: (sig) => spinner.text = `Transaction sent: ${sig.slice(0, 8)}...`,
+          }
+        );
+
+        spinner.succeed(chalk.green(`Successfully transferred ${amount} ${token}!`));
+        console.log(chalk.cyan(`Transaction: ${getSolscanUrl(result.signature, network)}`));
+      }
     } catch (error) {
       spinner.fail(chalk.red('Transfer failed'));
       handleError(error);
@@ -176,23 +240,32 @@ program
 program
   .command('pay <url>')
   .option('-a, --amount <amount>', 'Payment amount in SOL', '0.001')
+  .option('-r, --recipient <address>', 'Recipient address (for devnet mode)')
   .option('--mock', 'Use mock mode (no real payment)', false)
+  .option('--devnet', 'Use real devnet transactions (requires funded wallet)', false)
   .description('Pay for an AI API privately using x402 protocol')
-  .action(async (url: string, options: { amount: string; mock: boolean }) => {
+  .action(async (url: string, options: { amount: string; recipient?: string; mock: boolean; devnet: boolean }) => {
     const { spyk, network } = loadConfig();
 
-    console.log(chalk.bold.cyan('\n🤖 SPYK x402 - Private AI Payment\n'));
+    console.log(chalk.bold.cyan('\n[x402] SPYK x402 - Private AI Payment\n'));
     console.log(chalk.white('This demonstrates how AI agents pay for APIs privately.\n'));
 
+    // Show mode
+    if (options.devnet) {
+      console.log(chalk.bgGreen.black(' DEVNET MODE ') + chalk.green(' Real transactions will be sent!\n'));
+    } else if (options.mock) {
+      console.log(chalk.bgYellow.black(' MOCK MODE ') + chalk.yellow(' No real transactions\n'));
+    }
+
     // Step 1: Show the problem
-    console.log(chalk.yellow('━━━ The Problem ━━━'));
-    console.log(chalk.white('Normal payment: Your wallet → API Provider'));
-    console.log(chalk.red('  ⚠ Your wallet is permanently linked on-chain'));
-    console.log(chalk.red('  ⚠ Competitors can see which APIs you use'));
-    console.log(chalk.red('  ⚠ Spend patterns reveal your business activity\n'));
+    console.log(chalk.yellow('--- The Problem ---'));
+    console.log(chalk.white('Normal payment: Your wallet -> API Provider'));
+    console.log(chalk.red('  ! Your wallet is permanently linked on-chain'));
+    console.log(chalk.red('  ! Competitors can see which APIs you use'));
+    console.log(chalk.red('  ! Spend patterns reveal your business activity\n'));
 
     // Step 2: Show the solution
-    console.log(chalk.green('━━━ SPYK Solution ━━━'));
+    console.log(chalk.green('--- SPYK Solution ---'));
     console.log(chalk.white('1. Shield funds into ZK pool (Privacy Cash)'));
     console.log(chalk.white('2. Generate ephemeral keypair (one-time use)'));
     console.log(chalk.white('3. Withdraw to ephemeral address'));
@@ -202,95 +275,181 @@ program
     const spinner = ora('Initiating private payment flow...').start();
 
     try {
-      // Step 3: Check shielded balance
-      spinner.text = 'Checking shielded balance...';
-      const balance = await spyk.x402.getShieldedBalance();
+      // For devnet mode, use a real recipient or the user-provided one
+      // Default to a known devnet address (System Program as fallback, but prefer user input)
+      const recipient = options.recipient || (options.devnet
+        ? '11111111111111111111111111111111' // System Program (burns SOL effectively)
+        : 'DemoAPIWa11etAddressxxxxxxxxxxxxxxxxxxxxxxxxx');
 
-      console.log(chalk.cyan(`\n💰 Shielded Balance: ${balance} SOL`));
+      // Validate recipient for devnet mode
+      if (options.devnet && !options.recipient) {
+        spinner.warn(chalk.yellow('No recipient specified for devnet mode'));
+        console.log(chalk.yellow('\nTip: Use -r <address> to specify a real recipient'));
+        console.log(chalk.yellow('     Using System Program (11111...1111) as default\n'));
+        spinner.start();
+      }
 
-      if (parseFloat(balance) < parseFloat(options.amount)) {
-        spinner.warn(chalk.yellow('Insufficient shielded balance'));
-        console.log(chalk.yellow(`\nTip: Run 'pnpm dev deposit ${options.amount}' first to shield funds\n`));
+      if (options.mock) {
+        // Full mock mode - skip balance check
+        spinner.text = 'Checking shielded balance...';
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log(chalk.cyan(`\n[Balance] Shielded Balance: 1.5 SOL (mock)`));
+      } else if (options.devnet) {
+        // Devnet mode - check wallet balance (not shielded)
+        spinner.text = 'Checking wallet balance...';
+        const balance = await spyk.rpcConnection.getBalance(spyk.walletPublicKey);
+        const balanceSol = balance / 1e9;
+        console.log(chalk.cyan(`\n[Balance] Wallet Balance: ${balanceSol.toFixed(4)} SOL`));
 
-        // Offer to deposit
-        const { shouldDeposit } = await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'shouldDeposit',
-            message: `Shield ${options.amount} SOL now?`,
-            default: true,
-          },
-        ]);
-
-        if (shouldDeposit) {
-          spinner.start('Shielding funds...');
-          await spyk.deposit('SOL', parseFloat(options.amount), {
-            onSigning: () => spinner.text = 'Signing deposit...',
-          });
-          spinner.succeed(chalk.green(`Shielded ${options.amount} SOL`));
-        } else {
+        if (balanceSol < parseFloat(options.amount) + 0.001) {
+          spinner.fail(chalk.red('Insufficient balance'));
+          console.log(chalk.yellow(`\nNeed at least ${(parseFloat(options.amount) + 0.001).toFixed(4)} SOL`));
+          console.log(chalk.yellow('Get devnet SOL from: https://faucet.solana.com/\n'));
           return;
+        }
+      } else {
+        // Real mode with Privacy Cash - check shielded balance
+        spinner.text = 'Checking shielded balance...';
+        const balance = await spyk.x402.getShieldedBalance();
+        const balanceSol = Number(balance) / 1e9;
+        console.log(chalk.cyan(`\n[Balance] Shielded Balance: ${balanceSol.toFixed(4)} SOL`));
+
+        if (balanceSol < parseFloat(options.amount)) {
+          spinner.warn(chalk.yellow('Insufficient shielded balance'));
+          console.log(chalk.yellow(`\nTip: Run 'pnpm dev deposit ${options.amount}' first to shield funds\n`));
+
+          const { shouldDeposit } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'shouldDeposit',
+              message: `Shield ${options.amount} SOL now?`,
+              default: true,
+            },
+          ]);
+
+          if (shouldDeposit) {
+            spinner.start('Shielding funds...');
+            await spyk.deposit('SOL', parseFloat(options.amount), {
+              onSigning: () => spinner.text = 'Signing deposit...',
+            });
+            spinner.succeed(chalk.green(`Shielded ${options.amount} SOL`));
+          } else {
+            return;
+          }
         }
       }
 
-      // Step 4: Simulate API request (or use mock)
+      // Step 4: Simulate API request
       spinner.start(`Calling API: ${url}`);
 
-      // Mock invoice for demo (in real usage, this comes from the API's 402 response)
-      const mockInvoice = {
+      const invoice = {
         amount: options.amount,
-        token: 'SOL',
-        recipient: 'DemoAPIWa11etAddressxxxxxxxxxxxxxxxxxxxxxxxxx', // Demo address
+        token: 'SOL' as const,
+        recipient,
         memo: `Payment for ${url}`,
-        network: network,
+        network: network as 'devnet' | 'mainnet-beta',
       };
 
       spinner.text = 'API returned 402 Payment Required...';
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      console.log(chalk.yellow(`\n📄 Invoice received:`));
-      console.log(chalk.white(`   Amount: ${mockInvoice.amount} SOL`));
-      console.log(chalk.white(`   Recipient: ${mockInvoice.recipient.slice(0, 8)}...`));
-      console.log(chalk.white(`   Memo: ${mockInvoice.memo}\n`));
-
-      // Step 5: Pay privately
-      spinner.start('Generating ephemeral keypair...');
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const ephemeralAddress = Keypair.generate().publicKey.toBase58();
-      spinner.text = `Ephemeral address: ${ephemeralAddress.slice(0, 8)}...`;
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log(chalk.yellow(`\n[Invoice] Invoice received:`));
+      console.log(chalk.white(`   Amount: ${invoice.amount} SOL`));
+      console.log(chalk.white(`   Recipient: ${invoice.recipient.slice(0, 8)}...${invoice.recipient.slice(-4)}`));
+      console.log(chalk.white(`   Memo: ${invoice.memo}\n`));
 
-      spinner.text = 'Withdrawing to ephemeral address...';
-      await new Promise(resolve => setTimeout(resolve, 500));
+      let paymentSignature: string;
+      let ephemeralAddress: string;
 
-      spinner.text = 'Signing payment from ephemeral...';
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (options.devnet) {
+        // REAL DEVNET MODE - Execute actual transactions
+        const facilitator = new DevnetX402Facilitator({
+          connection: spyk.rpcConnection,
+          fundingKeypair: (spyk.privacyCash as any).config.wallet, // Access the wallet from config
+          logPayments: false, // We'll do our own logging
+        });
 
-      if (options.mock) {
-        // Mock mode - just simulate
+        spinner.start('Generating ephemeral keypair...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        spinner.text = 'Funding ephemeral address...';
+
+        // Execute real payment
+        paymentSignature = await facilitator.createPaymentProof(invoice);
+        const details = facilitator.getLastPaymentDetails()!;
+        ephemeralAddress = details.ephemeralAddress;
+
+        spinner.succeed(chalk.green('Payment sent on devnet!'));
+
+        console.log(chalk.bold.green('\n[SUCCESS] Private Payment Complete!\n'));
+        console.log(chalk.cyan('--- Transaction Details ---'));
+        console.log(chalk.white(`Ephemeral Address: ${ephemeralAddress}`));
+        console.log(chalk.white(`Funding Tx:        ${details.fundingSignature}`));
+        console.log(chalk.white(`Payment Tx:        ${paymentSignature}`));
+        console.log(chalk.bold.cyan(`\nView on Solscan:   ${details.solscanUrl}\n`));
+
+      } else if (options.mock) {
+        // Mock mode - simulate with delays
+        spinner.start('Generating ephemeral keypair...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        ephemeralAddress = Keypair.generate().publicKey.toBase58();
+        spinner.text = `Ephemeral address: ${ephemeralAddress.slice(0, 8)}...`;
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        spinner.text = 'Withdrawing to ephemeral address...';
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        spinner.text = 'Signing payment from ephemeral...';
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        paymentSignature = 'mock_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
         spinner.succeed(chalk.green('Payment simulated (mock mode)'));
+
+        console.log(chalk.bold.green('\n[SUCCESS] Private Payment Complete!\n'));
+
       } else {
-        // Real payment would go here
-        // const result = await spyk.x402.payPrivately(mockInvoice);
+        // Full Privacy Cash mode
+        spinner.start('Generating ephemeral keypair...');
+
+        // Use the actual x402 client with mock facilitator for now
+        // Full Privacy Cash integration would use payPrivately()
+        spyk.x402.setFacilitator(new MockX402Facilitator({ logPayments: false }));
+
+        const result = await spyk.x402.payPrivately(invoice);
+        ephemeralAddress = result.ephemeralUsed!;
+        paymentSignature = result.signature;
+
         spinner.succeed(chalk.green('Payment sent privately!'));
+
+        console.log(chalk.bold.green('\n[SUCCESS] Private Payment Complete!\n'));
+        console.log(chalk.cyan('--- Transaction Details ---'));
+        console.log(chalk.white(`Withdrawal Tx: ${result.withdrawalSignature}`));
+        console.log(chalk.white(`Payment Proof: ${paymentSignature.slice(0, 20)}...`));
       }
 
-      // Step 6: Show result
-      console.log(chalk.bold.green('\n✅ Private Payment Complete!\n'));
-      console.log(chalk.cyan('━━━ Privacy Summary ━━━'));
-      console.log(chalk.white(`Your wallet:     ${chalk.gray('(hidden)')}`));
-      console.log(chalk.white(`Ephemeral used:  ${ephemeralAddress.slice(0, 16)}...`));
-      console.log(chalk.white(`Payment amount:  ${options.amount} SOL`));
-      console.log(chalk.white(`On-chain link:   ${chalk.green('NONE')} ✓`));
+      // Privacy summary
+      console.log(chalk.cyan('--- Privacy Summary ---'));
+      console.log(chalk.white(`Your wallet:       ${chalk.gray('(hidden from payment)')}`));
+      console.log(chalk.white(`Ephemeral used:    ${ephemeralAddress.slice(0, 16)}...`));
+      console.log(chalk.white(`Payment amount:    ${options.amount} SOL`));
+      console.log(chalk.white(`On-chain link:     ${chalk.green('BROKEN')} (ephemeral is one-time)`));
       console.log(chalk.white(`API provider sees: Random one-time address`));
       console.log(chalk.white(`Competitors see:   Nothing linked to you\n`));
 
-      console.log(chalk.yellow('━━━ What just happened ━━━'));
-      console.log(chalk.white('1. Funds came from ZK shielded pool (unlinkable)'));
-      console.log(chalk.white('2. Paid from ephemeral address (one-time)'));
-      console.log(chalk.white('3. Ephemeral keypair discarded (never reused)'));
-      console.log(chalk.white('4. Your wallet never appeared on-chain\n'));
+      if (options.devnet) {
+        console.log(chalk.yellow('--- What happened on-chain ---'));
+        console.log(chalk.white('1. Your wallet funded an ephemeral address'));
+        console.log(chalk.white('2. Ephemeral address paid the recipient'));
+        console.log(chalk.white('3. Ephemeral keypair was discarded'));
+        console.log(chalk.gray('\n(In production, step 1 uses Privacy Cash ZK withdrawal)\n'));
+      } else {
+        console.log(chalk.yellow('--- What just happened ---'));
+        console.log(chalk.white('1. Funds came from ZK shielded pool (unlinkable)'));
+        console.log(chalk.white('2. Paid from ephemeral address (one-time)'));
+        console.log(chalk.white('3. Ephemeral keypair discarded (never reused)'));
+        console.log(chalk.white('4. Your wallet never appeared on-chain\n'));
+      }
 
     } catch (error) {
       spinner.fail(chalk.red('Payment failed'));

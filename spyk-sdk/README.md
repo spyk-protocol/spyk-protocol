@@ -432,24 +432,22 @@ await arcium.lending.depositPrivate({
 });
 ```
 
-### Noir/Sunspot - ZK Proofs
+### Noir/Sunspot - ZK Proofs (Roadmap)
+
+> **Note:** Noir integration is currently a **mock implementation** for API design validation.
+> Real ZK proof generation requires Sunspot CLI and deployed verifier programs, which are on the roadmap.
+> See [ROADMAP.md](../ROADMAP.md) for planned implementation.
 
 ```typescript
 import { noir } from '@spyk-protocol/sdk';
 
-// Create prover for OFAC compliance
+// EXPERIMENTAL: Mock implementation - does not generate real proofs
 const prover = noir.createNoirProver();
 
-// Generate non-membership proof
+// Returns mock result for API testing (not cryptographically valid)
 const result = await prover.proveCompliance(address);
 
-if (result.passed) {
-  // Verify on-chain
-  const verifier = noir.createNoirVerifier(connection, wallet, {
-    verifierProgramId: VERIFIER_PROGRAM_ID,
-  });
-  await verifier.verifyOnChain(result.noirProof);
-}
+// Real implementation planned - see ROADMAP.md
 ```
 
 ### Range - Compliance Pre-Screening
@@ -499,6 +497,37 @@ AI assistants should read [SKILL.md](./SKILL.md) for:
 - Common integration patterns
 - Error handling best practices
 - Token routing logic
+
+## Known Limitations
+
+### Privacy Cash: Mainnet Only
+
+Privacy Cash (the underlying ZK shielding protocol) **does not support devnet**. Per their [SDK FAQ](https://privacycash.mintlify.app/sdk):
+
+> **Is there any devnet support?**
+> Not for now. Please test on mainnet. It should be really straightforward to integrate.
+
+This affects the following SPYK features on devnet:
+- `spyk.deposit()` - Will fail (requires Privacy Cash relayer)
+- `spyk.withdraw()` - Will fail (requires Privacy Cash relayer)
+- `spyk.x402.payPrivately()` with full shielding - Will fail
+
+**Workarounds for devnet testing:**
+
+1. **x402 with `--devnet` mode**: Uses ephemeral keypairs without Privacy Cash shielding. Still breaks on-chain linkage but funds come from your wallet directly (not ZK shielded).
+
+2. **ShadowWire transfers**: Work on devnet for multi-token private transfers.
+
+3. **Test on mainnet**: Privacy Cash recommends testing on mainnet with small amounts.
+
+### Relayer Dependency
+
+Privacy Cash uses a centralized relayer service (`api3.privacycash.org`) that:
+- Pays network fees for withdrawals
+- Maintains the merkle tree state
+- Is not open source
+
+This means Privacy Cash features require the relayer to be operational.
 
 ## Contributing
 
