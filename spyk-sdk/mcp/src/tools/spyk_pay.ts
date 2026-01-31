@@ -1,3 +1,5 @@
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { PrivacyCash } from 'privacycash';
 import { loadWalletConfig } from '../config/wallet.js';
 import type { Tool } from './index.js';
 
@@ -28,6 +30,9 @@ interface PayResult {
   data?: unknown;
   message: string;
 }
+
+/** USDC decimals on Solana */
+const USDC_DECIMALS = 6;
 
 /**
  * spyk_pay - Pay for x402 API privately
@@ -108,22 +113,57 @@ export const spyk_pay: Tool = {
         };
       }
 
-      // 4. Make private payment (demo implementation)
-      // In real implementation, this would:
-      // - Initialize SpykX402Client
-      // - Call client.payPrivately(invoice)
-      // For demo, we generate a mock proof
-
+      // 4. Make private payment from shielded balance
       const useMock = process.env.SPYK_USE_MOCK_FACILITATOR === 'true';
       let proof: string;
 
       if (useMock) {
-        // Generate mock payment proof
+        // Generate mock payment proof for testing
         proof = `mock_${Date.now()}_${x402.amount}_${x402.recipient.slice(0, 8)}`;
         console.log('[SPYK MCP] Mock payment proof:', proof);
       } else {
-        // Real payment would go here
-        throw new Error('Real x402 payments not yet implemented. Set SPYK_USE_MOCK_FACILITATOR=true for demo mode.');
+        // Real payment using Privacy Cash withdraw
+        const config = loadWalletConfig();
+        const rpcUrl = process.env.SPYK_RPC_URL || config.connection.rpcEndpoint;
+
+        const privacyCashClient = new PrivacyCash({
+          RPC_url: rpcUrl,
+          owner: config.keypair,
+          enableDebug: false,
+        });
+
+        const token = x402.token.toUpperCase();
+
+        if (token === 'SOL') {
+          // Convert SOL to lamports
+          const lamports = Math.floor(requestedAmount * LAMPORTS_PER_SOL);
+
+          console.log(`[SPYK MCP] Executing private payment: ${requestedAmount} SOL to ${x402.recipient}`);
+
+          const result = await privacyCashClient.withdraw({
+            lamports,
+            recipientAddress: x402.recipient,
+          });
+
+          // Transaction signature IS the payment proof
+          proof = result.tx;
+          console.log(`[SPYK MCP] Private payment successful. Signature: ${proof}`);
+        } else if (token === 'USDC') {
+          // Convert USDC to base units
+          const baseUnits = Math.floor(requestedAmount * Math.pow(10, USDC_DECIMALS));
+
+          console.log(`[SPYK MCP] Executing private USDC payment: ${requestedAmount} USDC to ${x402.recipient}`);
+
+          const result = await privacyCashClient.withdrawUSDC({
+            base_units: baseUnits,
+            recipientAddress: x402.recipient,
+          });
+
+          proof = result.tx;
+          console.log(`[SPYK MCP] Private USDC payment successful. Signature: ${proof}`);
+        } else {
+          throw new Error(`Unsupported token: ${token}. Only SOL and USDC are supported for private payments.`);
+        }
       }
 
       // 5. Retry original URL with payment proof
