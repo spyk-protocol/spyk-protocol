@@ -1,6 +1,4 @@
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { PrivacyCash } from 'privacycash';
-import { loadWalletConfig } from '../config/wallet.js';
+import { getSpykClient, isMockMode } from '../config/spyk-client.js';
 import type { Tool } from './index.js';
 
 interface ShieldInput {
@@ -15,12 +13,6 @@ interface ShieldResult {
   token: string;
   message: string;
 }
-
-/** USDC decimals on Solana */
-const USDC_DECIMALS = 6;
-
-/** Minimum SOL to keep for rent/fees */
-const MIN_SOL_RESERVE = 0.01 * LAMPORTS_PER_SOL;
 
 /**
  * spyk_shield - Shield funds for private payments
@@ -56,10 +48,7 @@ export const spyk_shield: Tool = {
     }
 
     // Check if mock mode is enabled
-    const useMock = process.env.SPYK_USE_MOCK_FACILITATOR === 'true';
-
-    if (useMock) {
-      // Mock mode for testing without real transactions
+    if (isMockMode()) {
       return {
         success: true,
         signature: `mock_shield_${Date.now()}`,
@@ -70,55 +59,19 @@ export const spyk_shield: Tool = {
     }
 
     try {
-      const config = loadWalletConfig();
-      const rpcUrl = process.env.SPYK_RPC_URL || config.connection.rpcEndpoint;
+      // Get shared Spyk SDK client
+      const spyk = getSpykClient();
 
-      // Initialize Privacy Cash client
-      const privacyCashClient = new PrivacyCash({
-        RPC_url: rpcUrl,
-        owner: config.keypair,
-        enableDebug: false,
-      });
+      // Execute shield via SDK
+      const result = await spyk.deposit(token, amount);
 
-      if (token === 'SOL') {
-        // Check balance before shielding
-        const balance = await config.connection.getBalance(config.keypair.publicKey);
-        const lamports = Math.floor(amount * LAMPORTS_PER_SOL);
-        const requiredBalance = lamports + MIN_SOL_RESERVE;
-
-        if (balance < requiredBalance) {
-          const availableSol = (balance / LAMPORTS_PER_SOL).toFixed(4);
-          const neededSol = (requiredBalance / LAMPORTS_PER_SOL).toFixed(4);
-          throw new Error(
-            `Insufficient balance: have ${availableSol} SOL, need ${neededSol} SOL (including ${MIN_SOL_RESERVE / LAMPORTS_PER_SOL} SOL reserve for fees)`
-          );
-        }
-
-        // Execute real shield transaction
-        const result = await privacyCashClient.deposit({ lamports });
-
-        return {
-          success: true,
-          signature: result.tx,
-          amount: `${amount} ${token}`,
-          token,
-          message: `Successfully shielded ${amount} SOL. Transaction: ${result.tx}`,
-        };
-      } else if (token === 'USDC') {
-        // USDC shielding
-        const baseUnits = Math.floor(amount * Math.pow(10, USDC_DECIMALS));
-        const result = await privacyCashClient.depositUSDC({ base_units: baseUnits });
-
-        return {
-          success: true,
-          signature: result.tx,
-          amount: `${amount} ${token}`,
-          token,
-          message: `Successfully shielded ${amount} USDC. Transaction: ${result.tx}`,
-        };
-      } else {
-        throw new Error(`Unsupported token: ${token}. Only SOL and USDC are supported.`);
-      }
+      return {
+        success: result.status === 'confirmed',
+        signature: result.signature,
+        amount: `${amount} ${token}`,
+        token,
+        message: `Successfully shielded ${amount} ${token}. Transaction: ${result.signature}`,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to shield funds: ${message}`);

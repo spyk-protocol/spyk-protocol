@@ -1,6 +1,4 @@
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { PrivacyCash } from 'privacycash';
-import { loadWalletConfig } from '../config/wallet.js';
+import { getSpykClient, isMockMode } from '../config/spyk-client.js';
 import type { Tool } from './index.js';
 
 interface PayInput {
@@ -30,9 +28,6 @@ interface PayResult {
   data?: unknown;
   message: string;
 }
-
-/** USDC decimals on Solana */
-const USDC_DECIMALS = 6;
 
 /**
  * spyk_pay - Pay for x402 API privately
@@ -71,6 +66,10 @@ export const spyk_pay: Tool = {
     }
 
     try {
+      // Get the shared Spyk SDK client
+      const spyk = getSpykClient();
+      const useMock = isMockMode();
+
       // 1. Fetch the URL to check for 402
       const response = await fetch(input.url);
 
@@ -102,19 +101,19 @@ export const spyk_pay: Tool = {
 
       const x402 = body.x402;
       const requestedAmount = parseFloat(x402.amount);
+      const token = x402.token.toUpperCase() as 'SOL' | 'USDC';
 
       // 3. Validate amount
       if (requestedAmount > maxAmount) {
         return {
           success: false,
           paid: false,
-          amount: `${requestedAmount} ${x402.token}`,
-          message: `Amount ${requestedAmount} ${x402.token} exceeds maximum ${maxAmount} SOL`,
+          amount: `${requestedAmount} ${token}`,
+          message: `Amount ${requestedAmount} ${token} exceeds maximum ${maxAmount} SOL`,
         };
       }
 
       // 4. Make private payment from shielded balance
-      const useMock = process.env.SPYK_USE_MOCK_FACILITATOR === 'true';
       let proof: string;
 
       if (useMock) {
@@ -122,48 +121,19 @@ export const spyk_pay: Tool = {
         proof = `mock_${Date.now()}_${x402.amount}_${x402.recipient.slice(0, 8)}`;
         console.log('[SPYK MCP] Mock payment proof:', proof);
       } else {
-        // Real payment using Privacy Cash withdraw
-        const config = loadWalletConfig();
-        const rpcUrl = process.env.SPYK_RPC_URL || config.connection.rpcEndpoint;
-
-        const privacyCashClient = new PrivacyCash({
-          RPC_url: rpcUrl,
-          owner: config.keypair,
-          enableDebug: false,
-        });
-
-        const token = x402.token.toUpperCase();
-
-        if (token === 'SOL') {
-          // Convert SOL to lamports
-          const lamports = Math.floor(requestedAmount * LAMPORTS_PER_SOL);
-
-          console.log(`[SPYK MCP] Executing private payment: ${requestedAmount} SOL to ${x402.recipient}`);
-
-          const result = await privacyCashClient.withdraw({
-            lamports,
-            recipientAddress: x402.recipient,
-          });
-
-          // Transaction signature IS the payment proof
-          proof = result.tx;
-          console.log(`[SPYK MCP] Private payment successful. Signature: ${proof}`);
-        } else if (token === 'USDC') {
-          // Convert USDC to base units
-          const baseUnits = Math.floor(requestedAmount * Math.pow(10, USDC_DECIMALS));
-
-          console.log(`[SPYK MCP] Executing private USDC payment: ${requestedAmount} USDC to ${x402.recipient}`);
-
-          const result = await privacyCashClient.withdrawUSDC({
-            base_units: baseUnits,
-            recipientAddress: x402.recipient,
-          });
-
-          proof = result.tx;
-          console.log(`[SPYK MCP] Private USDC payment successful. Signature: ${proof}`);
-        } else {
+        // Validate token type
+        if (token !== 'SOL' && token !== 'USDC') {
           throw new Error(`Unsupported token: ${token}. Only SOL and USDC are supported for private payments.`);
         }
+
+        console.log(`[SPYK MCP] Executing private payment: ${requestedAmount} ${token} to ${x402.recipient}`);
+
+        // Use the Spyk SDK's withdraw method which handles token routing
+        const result = await spyk.withdraw(token, requestedAmount, x402.recipient);
+
+        // Transaction signature IS the payment proof
+        proof = result.signature;
+        console.log(`[SPYK MCP] Private payment successful. Signature: ${proof}`);
       }
 
       // 5. Retry original URL with payment proof
@@ -188,7 +158,7 @@ export const spyk_pay: Tool = {
             success: false,
             paid: true,
             proof,
-            amount: `${requestedAmount} ${x402.token}`,
+            amount: `${requestedAmount} ${token}`,
             message: `Payment submitted but verification failed: ${retryResponse.status}`,
           };
         }
@@ -206,10 +176,10 @@ export const spyk_pay: Tool = {
             success: true,
             paid: true,
             proof,
-            amount: `${requestedAmount} ${x402.token}`,
-            token: x402.token,
+            amount: `${requestedAmount} ${token}`,
+            token,
             data,
-            message: `Paid ${requestedAmount} ${x402.token} privately and retrieved data`,
+            message: `Paid ${requestedAmount} ${token} privately and retrieved data`,
           };
         }
       }
@@ -220,10 +190,10 @@ export const spyk_pay: Tool = {
         success: true,
         paid: true,
         proof,
-        amount: `${requestedAmount} ${x402.token}`,
-        token: x402.token,
+        amount: `${requestedAmount} ${token}`,
+        token,
         data,
-        message: `Paid ${requestedAmount} ${x402.token} privately and retrieved data`,
+        message: `Paid ${requestedAmount} ${token} privately and retrieved data`,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
