@@ -432,23 +432,30 @@ await arcium.lending.depositPrivate({
 });
 ```
 
-### Noir/Sunspot - ZK Proofs (Roadmap)
+### Noir/Sunspot - ZK Compliance Proofs
 
-> **Note:** Noir integration is currently a **mock implementation** for API design validation.
-> Real ZK proof generation requires Sunspot CLI and deployed verifier programs, which are on the roadmap.
-> See [ROADMAP.md](../ROADMAP.md) for planned implementation.
+Aztec Noir ZK proofs for privacy-preserving OFAC compliance verification.
 
 ```typescript
 import { noir } from '@spyk-protocol/sdk';
 
-// EXPERIMENTAL: Mock implementation - does not generate real proofs
+// Check toolchain status
+const status = await noir.checkToolchain();
+console.log('CLI mode available:', status.ready);
+
+// Create prover (auto-detects CLI vs mock mode)
 const prover = noir.createNoirProver();
+await prover.initialize();
 
-// Returns mock result for API testing (not cryptographically valid)
-const result = await prover.proveCompliance(address);
-
-// Real implementation planned - see ROADMAP.md
+// Generate compliance proof
+const result = await prover.proveCompliance(walletAddress);
+if (result.passed && result.noirProof) {
+  console.log('Mode:', prover.getMode()); // 'cli' or 'mock'
+  // Proof ready for on-chain verification
+}
 ```
+
+See [Noir ZK Compliance Flow](#noir-zk-compliance-flow) for complete documentation.
 
 ### Range - Compliance Pre-Screening
 
@@ -528,6 +535,246 @@ Privacy Cash uses a centralized relayer service (`api3.privacycash.org`) that:
 - Is not open source
 
 This means Privacy Cash features require the relayer to be operational.
+
+## Noir ZK Compliance Flow
+
+SPYK uses Aztec Noir zero-knowledge proofs to verify OFAC compliance without revealing user identities. This enables privacy-preserving sanctions screening before any privacy transaction.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     SPYK NOIR ZK COMPLIANCE FLOW                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌───────────┐ │
+│  │    User      │    │   Noir/      │    │   Solana     │    │  Privacy  │ │
+│  │   Wallet     │───▶│   Sunspot    │───▶│   Verifier   │───▶│   Tx OK   │ │
+│  │              │    │   Prover     │    │   Program    │    │           │ │
+│  └──────────────┘    └──────────────┘    └──────────────┘    └───────────┘ │
+│         │                   │                   │                   │       │
+│         │                   │                   │                   │       │
+│    1. Address          2. Generate         3. Verify          4. Proceed   │
+│       bytes            ZK Proof           On-Chain          with Privacy   │
+│                        (388 bytes)       (< 200k CU)          Transfer     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Detailed Pipeline
+
+```
+Off-Chain (User's Machine)
+├── nargo compile      → target/circuit.json (ACIR bytecode)
+├── nargo execute      → target/circuit.gz (witness)
+└── sunspot prove      → target/circuit.proof (388 bytes)
+                         target/circuit.pw (76 bytes public witness)
+
+On-Chain (Solana Devnet/Mainnet)
+├── Concatenate: proof || public_witness = instruction_data (464 bytes)
+├── Send to verifier program: 548u4SFWZMaRWZQqdyAgm66z7VRYtNHHF2sr7JTBXbwN
+└── Groth16 verification (< 200,000 compute units)
+```
+
+### SDK Usage
+
+```typescript
+import { noir } from '@spyk-protocol/sdk';
+
+// 1. Check toolchain availability
+const status = await noir.checkToolchain();
+console.log('nargo:', status.nargo.installed ? status.nargo.version : 'not installed');
+console.log('sunspot:', status.sunspot.installed ? 'installed' : 'not installed');
+console.log('Ready for CLI mode:', status.ready);
+
+// 2. Create prover (auto-detects CLI vs mock mode)
+const prover = noir.createNoirProver();
+await prover.initialize();
+
+// 3. Generate compliance proof
+const result = await prover.proveCompliance(walletAddress);
+if (result.passed && result.noirProof) {
+  console.log('Mode:', prover.getMode()); // 'cli' or 'mock'
+  console.log('Proof size:', result.noirProof.proof.length, 'bytes');
+
+  // 4. Verify on-chain (optional - for trustless verification)
+  const verifier = noir.createNoirVerifier(connection, wallet, {
+    verifierProgramId: noir.getDefaultVerifierProgramId('devnet'),
+  });
+  const verification = await verifier.verifyOnChain(result.noirProof);
+  console.log('On-chain verified:', verification.verified);
+  console.log('Transaction:', verification.signature);
+}
+```
+
+### Prover Modes
+
+The prover supports two modes, automatically detected based on toolchain availability:
+
+| Mode | Description | Requirements | Use Case |
+|------|-------------|--------------|----------|
+| **CLI** | Real Groth16 proofs via nargo/sunspot | nargo 1.0.0-beta.18, sunspot | Production |
+| **Mock** | Structurally valid mock proofs | None | Development, demos |
+
+```typescript
+// Force specific mode
+const cliProver = noir.createNoirProver({ useCLI: true });   // Throws if tools missing
+const mockProver = noir.createNoirProver({ useCLI: false }); // Always uses mock
+
+// Auto-detect (default)
+const prover = noir.createNoirProver(); // CLI if available, else mock
+```
+
+### Installation Requirements
+
+#### nargo (Noir Compiler)
+
+```bash
+# Install noirup (Noir version manager)
+curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+
+# Install specific version
+noirup -v 1.0.0-beta.18
+
+# Verify installation
+nargo --version
+# Expected: nargo version = 1.0.0-beta.18
+```
+
+#### sunspot (Solana ZK Prover)
+
+```bash
+# Clone and build from source
+git clone https://github.com/reilabs/sunspot.git
+cd sunspot/go
+go build -o sunspot
+
+# Add to PATH or specify path in SDK config
+export PATH="$PATH:$HOME/sunspot/go"
+```
+
+### Deployed Verifier Programs
+
+| Network | Program ID | Circuit | Status |
+|---------|------------|---------|--------|
+| Devnet | `548u4SFWZMaRWZQqdyAgm66z7VRYtNHHF2sr7JTBXbwN` | smt_exclusion | Deployed |
+| Mainnet | TBD | smt_exclusion | Roadmap |
+
+### Circuit Details
+
+The `smt_exclusion` circuit proves that an address is NOT in a Sparse Merkle Tree (SMT) containing OFAC-sanctioned addresses:
+
+```
+Circuit: smt_exclusion
+├── Public Inputs
+│   ├── smt_root (32 bytes) - Current OFAC tree root
+│   └── pubkey_hash (32 bytes) - Hash of user's public key
+├── Private Inputs
+│   ├── pubkey (32 bytes) - User's Solana public key
+│   ├── siblings (256 x 32 bytes) - Merkle proof path
+│   └── leaf_value - Empty leaf proof
+└── Output
+    └── Groth16 proof (388 bytes)
+```
+
+### Integration with SPYK Protocol
+
+Noir ZK proofs are required for the following SPYK operations:
+
+| Feature | Requirement | Description |
+|---------|-------------|-------------|
+| **Privacy Cash Shield** | Required | Prove compliance before depositing SOL/USDC |
+| **Privacy Cash Unshield** | Required | Prove compliance before withdrawing |
+| **ShadowWire Transfer** | Required | Prove compliance before private transfer |
+| **x402 Private Payment** | Required | Prove compliance before private API payment |
+| **Arcium Encrypted DeFi** | Optional | Additional compliance layer for DeFi ops |
+
+### Example: Full Compliance Flow
+
+```typescript
+import { Spyk, noir } from '@spyk-protocol/sdk';
+
+async function privateTransferWithCompliance() {
+  // 1. Initialize SPYK
+  const spyk = new Spyk({
+    heliusApiKey: process.env.HELIUS_API_KEY!,
+    network: 'devnet',
+    wallet: myKeypair,
+  });
+
+  // 2. Generate compliance proof
+  const prover = noir.createNoirProver();
+  await prover.initialize();
+
+  const compliance = await prover.proveCompliance(myKeypair.publicKey);
+
+  if (!compliance.passed) {
+    throw new Error('Compliance check failed');
+  }
+
+  console.log(`Compliance proof generated (${prover.getMode()} mode)`);
+
+  // 3. Optionally verify on-chain for trustless proof
+  if (prover.isUsingCLI()) {
+    const verifier = await noir.createAutoVerifier(connection, myKeypair, {
+      network: 'devnet',
+    });
+    const verification = await verifier.verifyOnChain(compliance.noirProof!);
+    console.log('On-chain verification:', verification.verified);
+  }
+
+  // 4. Proceed with privacy transaction
+  await spyk.deposit('SOL', 1.0);
+  await spyk.transfer({
+    to: recipientAddress,
+    amount: 0.5,
+    token: 'SOL',
+  });
+}
+```
+
+### Mock Verifier for Development
+
+When the on-chain verifier program is not available, use the mock verifier:
+
+```typescript
+import { noir } from '@spyk-protocol/sdk';
+
+// Create mock verifier (no on-chain program required)
+const mockVerifier = noir.createMockNoirVerifier();
+
+// Verify proof locally (structural validation only)
+const result = await mockVerifier.verifyOnChain(proof);
+console.log('Mock verified:', result.verified);
+console.log('Mock signature:', result.signature); // mock_<hash>_<timestamp>
+```
+
+### Error Handling
+
+```typescript
+import { NoirError, NoirErrorCodes } from '@spyk-protocol/sdk';
+
+try {
+  const result = await prover.proveCompliance(address);
+} catch (error) {
+  if (error instanceof NoirError) {
+    switch (error.code) {
+      case NoirErrorCodes.PROVER_UNAVAILABLE:
+        console.log('CLI tools not installed, falling back to mock');
+        break;
+      case NoirErrorCodes.PROOF_GENERATION_FAILED:
+        console.log('Proof generation failed:', error.message);
+        break;
+      case NoirErrorCodes.VERIFICATION_FAILED:
+        console.log('On-chain verification failed');
+        break;
+      case NoirErrorCodes.TREE_SERVICE_ERROR:
+        console.log('Could not fetch OFAC tree');
+        break;
+    }
+  }
+}
+```
 
 ## Contributing
 

@@ -13,9 +13,9 @@ describe('SpykPrivacyCash', () => {
   let privacyCash: SpykPrivacyCash;
 
   beforeAll(() => {
-    // Create test config with dummy values
+    // Create test config with dummy values - using Quicknode-style config
     config = {
-      heliusApiKey: 'test-api-key',
+      quicknodeUrl: 'https://api.devnet.solana.com',
       network: 'devnet',
       wallet: Keypair.generate(),
     };
@@ -75,7 +75,7 @@ describe('SpykPrivacyCash', () => {
       // Should throw SpykError (SDK not integrated) but NOT InvalidAddressError
       // This verifies the address parsing works correctly
       await expect(privacyCash.withdraw(1, destination)).rejects.toThrow();
-    });
+    }, 15000); // Increase timeout for devnet operations
   });
 
   describe('withdrawUSDC', () => {
@@ -92,13 +92,13 @@ describe('SpykPrivacyCash', () => {
       expect(result).toHaveProperty('token', 'SOL');
       expect(result).toHaveProperty('protocol', 'privacy-cash');
       expect(result).toHaveProperty('amount');
-    });
+    }, 15000); // Increase timeout for devnet operations
 
     it('should return balance result for USDC', async () => {
       const result = await privacyCash.getPrivateBalance('USDC');
 
       expect(result).toHaveProperty('token', 'USDC');
       expect(result).toHaveProperty('protocol', 'privacy-cash');
-    });
+    }, 15000); // Increase timeout for devnet operations
   });
 });

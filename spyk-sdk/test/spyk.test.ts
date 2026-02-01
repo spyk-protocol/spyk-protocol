@@ -19,8 +19,9 @@ describe('Spyk', () => {
   let spyk: Spyk;
 
   beforeAll(() => {
+    // Test with Quicknode-style config to verify multi-provider support
     config = {
-      heliusApiKey: 'test-api-key',
+      quicknodeUrl: 'https://api.devnet.solana.com',
       network: 'devnet',
       wallet: Keypair.generate(),
     };
@@ -34,7 +35,12 @@ describe('Spyk', () => {
     });
 
     it('should expose privacyCash wrapper', () => {
-      expect(spyk.privacyCash).toBeInstanceOf(SpykPrivacyCash);
+      // On devnet, Spyk uses MockPrivacyCash (since Privacy Cash has no devnet relayer)
+      // Verify it has the expected interface
+      expect(spyk.privacyCash).toBeDefined();
+      expect(typeof spyk.privacyCash.deposit).toBe('function');
+      expect(typeof spyk.privacyCash.withdraw).toBe('function');
+      expect(typeof spyk.privacyCash.getPrivateBalance).toBe('function');
     });
 
     it('should expose shadowWire wrapper', () => {

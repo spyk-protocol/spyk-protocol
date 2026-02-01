@@ -18,9 +18,9 @@ describe('SpykShadowWire', () => {
   let shadowWire: SpykShadowWire;
 
   beforeAll(() => {
-    // Create test config with dummy values
+    // Create test config with dummy values - using Quicknode-style config
     config = {
-      heliusApiKey: 'test-api-key',
+      quicknodeUrl: 'https://api.devnet.solana.com',
       network: 'devnet',
       wallet: Keypair.generate(),
     };
@@ -45,6 +45,11 @@ describe('SpykShadowWire', () => {
   describe('transfer', () => {
     const validRecipient = Keypair.generate().publicKey;
 
+    // Get minimum amounts for tokens to use in tests
+    // BONK minimum is 100,000,000 (100M), SOL minimum is much smaller
+    const BONK_MIN_AMOUNT = 100_000_000;
+    const SOL_MIN_AMOUNT = 0.01;
+
     it('should reject negative amount', async () => {
       await expect(
         shadowWire.transfer({
@@ -65,11 +70,22 @@ describe('SpykShadowWire', () => {
       ).rejects.toThrow(InvalidAmountError);
     });
 
+    it('should reject amount below minimum', async () => {
+      await expect(
+        shadowWire.transfer({
+          to: validRecipient,
+          amount: 100, // Below BONK minimum of 100M
+          token: 'BONK',
+        })
+      ).rejects.toThrow(InvalidAmountError);
+    });
+
     it('should reject invalid address string', async () => {
+      // Use amount above minimum so we test address validation, not amount validation
       await expect(
         shadowWire.transfer({
           to: 'not-a-valid-address',
-          amount: 100,
+          amount: BONK_MIN_AMOUNT,
           token: 'BONK',
         })
       ).rejects.toThrow(InvalidAddressError);
@@ -82,7 +98,7 @@ describe('SpykShadowWire', () => {
         await shadowWire.transfer(
           {
             to: validRecipient,
-            amount: 100,
+            amount: BONK_MIN_AMOUNT, // Use valid amount above minimum
             token: 'BONK',
           },
           {
@@ -92,7 +108,7 @@ describe('SpykShadowWire', () => {
           }
         );
       } catch {
-        // Expected to fail (no real network)
+        // Expected to fail (no real network connection)
       }
 
       expect(signingCalled).toBe(true);
@@ -105,7 +121,7 @@ describe('SpykShadowWire', () => {
         await shadowWire.transfer(
           {
             to: validRecipient.toBase58(),
-            amount: 100,
+            amount: BONK_MIN_AMOUNT, // Use valid amount above minimum
             token: 'BONK',
           },
           {
@@ -115,7 +131,7 @@ describe('SpykShadowWire', () => {
           }
         );
       } catch {
-        // Expected to fail (no real network)
+        // Expected to fail (no real network connection)
       }
 
       expect(signingCalled).toBe(true);

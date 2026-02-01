@@ -9,15 +9,55 @@
  *
  * Run with:
  *   SPYK_USE_MOCK_FACILITATOR=true npm run test:smoke
+ *
+ * Supports multiple RPC providers:
+ *   HELIUS_API_KEY=xxx npm run test:smoke      # Use Helius
+ *   QUICKNODE_URL=xxx npm run test:smoke       # Use Quicknode
+ *   SOLANA_RPC_URL=xxx npm run test:smoke      # Use custom RPC
  */
 
 import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { resolve } from 'path';
+import { getConfig, createConnection as createSDKConnection, type SpykConfig as EnvConfig } from '../src/config';
+import { createConnection, getRpcUrl } from '../src/utils/connection';
+import type { SpykConfig, Network } from '../src/types';
 
 const API_URL = process.env.TEST_API_URL || 'http://localhost:3000/api/premium-data';
-const RPC_URL = process.env.SOLANA_RPC || 'https://api.devnet.solana.com';
+
+/**
+ * Get RPC URL from SDK config, with fallback to SOLANA_RPC or public devnet
+ */
+function getRpcEndpoint(): { url: string; provider: string } {
+  // Try SDK config first
+  try {
+    const envConfig = getConfig();
+    const provider = envConfig.rpcProvider || 'unknown';
+
+    // Create a SpykConfig compatible with getRpcUrl
+    const sdkConfig: SpykConfig = {
+      rpcProvider: envConfig.rpcProvider,
+      heliusApiKey: envConfig.heliusApiKey,
+      quicknodeUrl: envConfig.quicknodeUrl,
+      customRpcUrl: envConfig.customRpcUrl,
+      network: (envConfig.cluster || 'devnet') as Network,
+      wallet: Keypair.generate(), // Placeholder, not used for URL generation
+    };
+
+    const url = getRpcUrl(sdkConfig);
+    return { url, provider };
+  } catch {
+    // Fallback to legacy SOLANA_RPC env var
+    const legacyRpc = process.env.SOLANA_RPC;
+    if (legacyRpc) {
+      return { url: legacyRpc, provider: 'custom (SOLANA_RPC)' };
+    }
+
+    // Default to public devnet
+    return { url: 'https://api.devnet.solana.com', provider: 'public-devnet' };
+  }
+}
 
 interface X402Response {
   error?: string;
@@ -38,9 +78,12 @@ async function runSmokeTest(): Promise<void> {
 
   // Configuration
   const useMock = process.env.SPYK_USE_MOCK_FACILITATOR === 'true';
+  const { url: RPC_URL, provider: RPC_PROVIDER } = getRpcEndpoint();
+
   console.log(`Mode: ${useMock ? 'MOCK FACILITATOR' : 'REAL FACILITATOR'}`);
   console.log(`API URL: ${API_URL}`);
-  console.log(`RPC: ${RPC_URL}\n`);
+  console.log(`RPC Provider: ${RPC_PROVIDER}`);
+  console.log(`RPC URL: ${RPC_URL.replace(/api-key=([^&]+)/, 'api-key=***')}\n`);
 
   // Setup
   const connection = new Connection(RPC_URL, 'confirmed');
