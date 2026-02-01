@@ -150,6 +150,9 @@ tk-dmo.6 ─┘                │
 | tk-dps.8 | Hide MOCK labels from demo output | Fix |
 | tk-dps.9 | Create final demo command script | Demo |
 | tk-dps.10 | Dry run validation | Demo |
+| tk-dps.12 | Fix MockPrivacyCash balance persistence | Fix v2 |
+| tk-dps.13 | Switch demo to CLI commands | Demo v2 |
+| tk-dps.14 | Update demo documentation files | Docs v2 |
 
 ### Dependency Graph
 ```
@@ -159,6 +162,10 @@ tk-dps.3 ─┼──► tk-dps.8 ──┐
 tk-dps.4 ─┼──► tk-dps.7 ──┼──► tk-dps.9 ──► tk-dps.10
 tk-dps.5 ─┤                │
 tk-dps.6 ─┘                │
+
+## Round 2 (fixes for incomplete work)
+tk-dps.12 ──┬──► tk-dps.13 ──► tk-dps.14
+            └─────────────────►
 ```
 
 ### Notes
@@ -166,3 +173,10 @@ tk-dps.6 ─┘                │
 - 6 audit tasks can run in parallel
 - Fix tasks blocked until audits complete
 - Demo tasks blocked until fixes complete
+
+### Round 2 Notes (2026-02-02)
+- tk-dps.7-10 completed but didn't fulfill requirements:
+  - Balance still resets to 0 (not persisting)
+  - Still using test-full-devnet-flow.ts instead of CLI
+  - MOCK labels still visible in output
+- tk-dps.12-14 created to properly fix these issues
