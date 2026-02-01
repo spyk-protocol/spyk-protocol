@@ -3,6 +3,13 @@
  *
  * Provides encryption, computation tracking, and account derivation
  * utilities for confidential DeFi operations.
+ *
+ * Environment Configuration:
+ * - For production: Set ARCIUM_CLUSTER_OFFSET environment variable
+ * - For devnet/testing: Pass cluster config in constructor or use defaults
+ *
+ * Devnet defaults are used when ARCIUM_CLUSTER_OFFSET is not set,
+ * enabling demo and testing scenarios without full Arcium configuration.
  */
 
 import { PublicKey, Keypair } from '@solana/web3.js';
@@ -26,6 +33,7 @@ import {
 } from '@arcium-hq/client';
 import {
   ArciumEnvConfig,
+  ArciumClusterConfig,
   EncryptionContext,
   EncryptionKeypair,
   EncryptedValue,
@@ -44,6 +52,43 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_MXE_RETRY_ATTEMPTS = 20;
 const MXE_RETRY_DELAY_MS = 500;
 const ENCRYPTION_KEY_MESSAGE = 'spyk-arcium-encryption-key-v1';
+
+/**
+ * Default cluster offset for Arcium devnet
+ * This value is used when ARCIUM_CLUSTER_OFFSET is not set.
+ * See: https://docs.arcium.com/developers/getting-started
+ */
+const ARCIUM_DEVNET_CLUSTER_OFFSET = 0;
+
+/**
+ * Arcium environment type returned by getArciumEnv or mock
+ */
+interface ArciumEnvResult {
+  arciumClusterOffset: number;
+}
+
+/**
+ * Safely get Arcium environment, falling back to devnet defaults
+ * if environment variables are not configured.
+ */
+function getArciumEnvSafe(clusterConfig?: ArciumClusterConfig): ArciumEnvResult {
+  // If explicit cluster config is provided, use it
+  if (clusterConfig?.clusterOffset !== undefined) {
+    return { arciumClusterOffset: clusterConfig.clusterOffset };
+  }
+
+  // Try to get from environment
+  try {
+    return getArciumEnv();
+  } catch (error) {
+    // Fall back to devnet defaults for demo/testing
+    console.warn(
+      '[ArciumClient] ARCIUM_CLUSTER_OFFSET not set, using devnet default. ' +
+      'Set environment variables for production use.'
+    );
+    return { arciumClusterOffset: ARCIUM_DEVNET_CLUSTER_OFFSET };
+  }
+}
 
 // ============================================
 // ArciumClient Class
@@ -77,14 +122,16 @@ const ENCRYPTION_KEY_MESSAGE = 'spyk-arcium-encryption-key-v1';
 export class ArciumClient {
   private provider: anchor.AnchorProvider;
   private programId: PublicKey;
-  private arciumEnv: ReturnType<typeof getArciumEnv>;
+  private arciumEnv: ArciumEnvResult;
   private encryptionContext?: EncryptionContext;
   private cipher?: RescueCipher;
+  private clusterConfig?: ArciumClusterConfig;
 
   constructor(config: ArciumEnvConfig) {
     this.provider = config.provider;
     this.programId = config.programId;
-    this.arciumEnv = getArciumEnv();
+    this.clusterConfig = config.cluster;
+    this.arciumEnv = getArciumEnvSafe(config.cluster);
   }
 
   // ============================================
@@ -300,7 +347,7 @@ export class ArciumClient {
     computationOffset: anchor.BN,
     config?: ComputationTrackingConfig
   ): Promise<ComputationResult<T>> {
-    const commitment = config?.commitment || 'confirmed';
+    const commitment = (config?.commitment || 'confirmed') as 'confirmed' | 'finalized';
     const timeoutMs = config?.timeoutMs || DEFAULT_TIMEOUT_MS;
 
     config?.onStatusChange?.('queued');
