@@ -7,7 +7,7 @@
  * Uses the Solana Foundation's pre-deployed SMT exclusion verifier:
  * https://github.com/solana-foundation/noir-examples/tree/main/circuits/smt_exclusion
  *
- * Devnet Program ID: 9HA5gERa9gHxvAhr3ndpwQ9zBPkF8WP2fVjLbXZink9t
+ * Devnet Program ID: 548u4SFWZMaRWZQqdyAgm66z7VRYtNHHF2sr7JTBXbwN
  *
  * The verifier supports Groth16 proofs for Sparse Merkle Tree exclusion
  * proofs, enabling privacy-preserving OFAC compliance verification.
@@ -20,6 +20,7 @@ import {
   TransactionInstruction,
   Keypair,
   sendAndConfirmTransaction,
+  ComputeBudgetProgram,
 } from '@solana/web3.js';
 import {
   NoirVerifierConfig,
@@ -48,12 +49,13 @@ export const VERIFIER_DEFAULTS = {
    * Verifier program ID on devnet
    * Source: solana-foundation/noir-examples SMT exclusion circuit
    * Verified deployed at slot 433576787
+   *
+   * IMPORTANT: This is the Sunspot Groth16 verifier, NOT the custom on-chain program.
+   * Instruction format: proof (388 bytes) + public_witness (76 bytes)
    */
-  DEVNET_PROGRAM_ID: new PublicKey('9HA5gERa9gHxvAhr3ndpwQ9zBPkF8WP2fVjLbXZink9t'),
+  DEVNET_PROGRAM_ID: new PublicKey('548u4SFWZMaRWZQqdyAgm66z7VRYtNHHF2sr7JTBXbwN'),
   /** Verifier program ID on mainnet (placeholder - needs actual deployment) */
   MAINNET_PROGRAM_ID: new PublicKey('11111111111111111111111111111111'),
-  /** Verification instruction discriminator (Sunspot verifier format) */
-  VERIFY_DISCRIMINATOR: Buffer.from([0xf3, 0x74, 0xd4, 0x83, 0x4c, 0xb5, 0x77, 0x09]),
   /** Enable mock mode for demos without deployed program */
   MOCK_MODE_ENABLED: false,
 } as const;
@@ -65,37 +67,54 @@ export const VERIFIER_DEFAULTS = {
 /**
  * Build a verification instruction for on-chain proof verification
  *
+ * The Sunspot Groth16 verifier expects:
+ * - proof (388 bytes): The Groth16 proof data
+ * - publicWitness (variable): The public witness data from the circuit
+ *
  * @param proof - Noir proof to verify
  * @param verifierProgramId - Verifier program ID
+ * @param publicWitness - Public witness bytes (from .pw file)
  * @returns Transaction instruction for verification
  */
 export function buildVerifyInstruction(
   proof: NoirProof,
-  verifierProgramId: PublicKey
+  verifierProgramId: PublicKey,
+  publicWitness?: Uint8Array
 ): TransactionInstruction {
-  // Instruction data layout:
-  // [8 bytes] discriminator
+  // Instruction data layout (Sunspot format):
   // [388 bytes] proof
-  // [32 bytes] address (public input)
-  // [32 bytes] root (public input)
+  // [N bytes] public_witness (typically 76 bytes for smt_exclusion)
+  //
+  // If no public witness provided, construct it from the proof's public inputs
 
-  const dataSize = 8 + 388 + 32 + 32;
-  const data = Buffer.alloc(dataSize);
+  let data: Buffer;
 
-  let offset = 0;
+  if (publicWitness) {
+    // Use provided public witness directly
+    data = Buffer.concat([
+      Buffer.from(proof.proof),
+      Buffer.from(publicWitness),
+    ]);
+  } else {
+    // Construct public witness from proof.publicInputs
+    // Format: 2 field elements + 1 byte marker
+    // - smt_root (32 bytes)
+    // - pubkey_hash (32 bytes)
+    // - marker (12 bytes padding for 76 byte total)
+    const witnessSize = 76; // smt_exclusion public witness size
+    const witnessData = Buffer.alloc(witnessSize);
 
-  // Write discriminator
-  VERIFIER_DEFAULTS.VERIFY_DISCRIMINATOR.copy(data, offset);
-  offset += 8;
+    // Write root (first public input)
+    Buffer.from(proof.publicInputs.root).copy(witnessData, 0);
+    // Write address hash (second public input)
+    Buffer.from(proof.publicInputs.address).copy(witnessData, 32);
+    // Remaining bytes are padding/marker
 
-  // Write proof
-  Buffer.from(proof.proof).copy(data, offset);
-  offset += 388;
-
-  // Write public inputs
-  Buffer.from(proof.publicInputs.address).copy(data, offset);
-  offset += 32;
-  Buffer.from(proof.publicInputs.root).copy(data, offset);
+    data = Buffer.concat([
+      Buffer.from(proof.proof),
+      witnessData,
+    ]);
+  }
 
   return new TransactionInstruction({
     programId: verifierProgramId,
@@ -156,17 +175,23 @@ export class NoirVerifier {
    * Verify a proof on-chain
    *
    * @param proof - Noir proof to verify
+   * @param publicWitness - Optional public witness bytes (if not provided, constructed from proof.publicInputs)
    * @returns Verification result with transaction signature
    */
-  async verifyOnChain(proof: NoirProof): Promise<VerificationResult> {
+  async verifyOnChain(proof: NoirProof, publicWitness?: Uint8Array): Promise<VerificationResult> {
     const startTime = Date.now();
 
     try {
       // Build verification instruction
-      const verifyIx = buildVerifyInstruction(proof, this.config.verifierProgramId);
+      const verifyIx = buildVerifyInstruction(proof, this.config.verifierProgramId, publicWitness);
+
+      // ZK verification requires more compute units (typically ~200-400k)
+      const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 500_000 });
 
       // Create and send transaction
-      const tx = new Transaction().add(verifyIx);
+      const tx = new Transaction()
+        .add(computeBudgetIx)
+        .add(verifyIx);
       tx.feePayer = this.payer.publicKey;
 
       const signature = await sendAndConfirmTransaction(
@@ -329,9 +354,10 @@ export class MockNoirVerifier {
    * Verify a proof locally (simulates on-chain verification)
    *
    * @param proof - Noir proof to verify
+   * @param _publicWitness - Ignored in mock mode (for API compatibility)
    * @returns Verification result with mock transaction signature
    */
-  async verifyOnChain(proof: NoirProof): Promise<VerificationResult> {
+  async verifyOnChain(proof: NoirProof, _publicWitness?: Uint8Array): Promise<VerificationResult> {
     // Perform structural validation (same as on-chain verifier)
     const isValid = this.validateProofStructure(proof);
 

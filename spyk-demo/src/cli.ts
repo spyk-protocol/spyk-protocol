@@ -807,6 +807,7 @@ complianceCmd
       let proofData: {
         address: string;
         proof: string;
+        publicWitness?: string;
         publicInputs: { address: string; root: string };
         metadata: { circuit: string; noirVersion: string; timestamp: number; size: number };
         mode?: string;
@@ -837,6 +838,11 @@ complianceCmd
         },
         metadata: proofData.metadata,
       };
+
+      // Extract public witness if provided
+      const publicWitness = proofData.publicWitness
+        ? Uint8Array.from(Buffer.from(proofData.publicWitness, 'base64'))
+        : undefined;
 
       if (options.verbose) {
         console.log(chalk.gray('\nProof loaded:'));
@@ -887,7 +893,7 @@ complianceCmd
           spinner.text = 'Verifier program not deployed, using local verification...';
         }
 
-        const result = await verifier.verifyOnChain(noirProof);
+        const result = await verifier.verifyOnChain(noirProof, publicWitness);
 
         spinner.stop();
 
