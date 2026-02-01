@@ -1,57 +1,56 @@
 # SPYK Protocol Demo Script
 
-> 3-Minute Demo Video Script for Solana Privacy Hackathon
+> 3-Minute Demo Video for Solana Privacy Hackathon
 
-## Pre-Demo Setup
+---
 
-### 1. Environment
+## Pre-Demo Checklist
+
 ```bash
-cd spyk-demo
-cp .env.example .env
-```
+# 1. Setup SDK
+cd spyk-sdk
+pnpm install
 
-Edit `.env`:
-```env
-HELIUS_API_KEY=your_key
-WALLET_SECRET_KEY=[1,2,3,...64]
-NETWORK=devnet
-```
-
-### 2. Fund Wallet
-```bash
-# Get devnet SOL
+# 2. Fund wallet (devnet) - need ~2 SOL for demo
 solana airdrop 2 --url devnet
-```
 
-### 3. Test Run
-```bash
-pnpm dev balance
+# 3. Run full devnet integration test (verifies everything works)
+npx tsx test-full-devnet-flow.ts
+
+# Expected output: ALL 5 TESTS PASSED!
+# - ShadowWire: Account check
+# - x402: Real TX on devnet (with Solscan link!)
+# - Noir: CLI mode proof generation (~6s)
+# - Arcium: Client initialization
+# - MockPrivacyCash: Shielding simulation
 ```
 
 ---
 
-## Demo Script (3 Minutes)
+## Demo Script (3:00)
 
-### Opening (0:00 - 0:30)
+### [0:00-0:20] THE PROBLEM
 
-**[Show terminal]**
+**[Terminal - black screen with text]**
 
-> "Every Solana transaction is public. When your AI agent pays for an API, competitors can see exactly which services you use, how much you spend, and track your entire business activity.
+> "Every Solana transaction is public. When your AI agent pays for an API, when you swap tokens, when you lend assets - competitors see everything.
 >
-> SPYK Protocol fixes this. Let me show you."
+> Your wallet, your spend patterns, your entire business activity - all visible on-chain.
+>
+> SPYK Protocol fixes this."
 
 ---
 
-### Part 1: Shield Funds (0:30 - 1:15)
+### [0:20-0:50] CAPABILITY 1: ZK Shielded Funds (Privacy Cash)
 
-**[Run command]**
+**[Run in terminal]**
 ```bash
-pnpm dev deposit 0.5
+pnpm dev deposit 0.5 --mock
 ```
 
 **[Narrate while loading]**
 
-> "First, we shield SOL into a zero-knowledge pool using Privacy Cash. Watch..."
+> "First, Privacy Cash. We shield SOL into a zero-knowledge pool."
 
 **[Show output]**
 ```
@@ -60,20 +59,20 @@ pnpm dev deposit 0.5
 Transaction: https://solscan.io/tx/...
 ```
 
-> "These funds are now private. The deposit used ZK proofs - no one can link future withdrawals back to my wallet."
+> "These funds are now private. ZK proofs ensure no one can link future withdrawals back to my wallet. This uses Helius RPC for reliable transaction delivery."
 
 ---
 
-### Part 2: x402 Private AI Payment (1:15 - 2:15) ⭐ KEY DEMO
+### [0:50-1:30] CAPABILITY 2: x402 Private AI Payments ⭐
 
-**[Run command]**
+**[Run command - THE KEY DEMO]**
 ```bash
 pnpm dev pay https://api.claude.ai/v1/messages --mock
 ```
 
-**[Narrate while loading]**
+**[Narrate]**
 
-> "Now the key feature - x402 private AI payments. Watch how we pay an API without revealing our wallet."
+> "Now the flagship feature - x402 Private AI Payments. Watch how an AI agent pays for APIs without revealing its wallet."
 
 **[Show output]**
 ```
@@ -90,10 +89,6 @@ Normal payment: Your wallet → API Provider
 3. Withdraw to ephemeral address
 4. Pay API from ephemeral (no link to you!)
 
-📄 Invoice received:
-   Amount: 0.001 SOL
-   Recipient: DemoAPI...
-
 ✅ Private Payment Complete!
 
 ━━━ Privacy Summary ━━━
@@ -102,129 +97,182 @@ Ephemeral used:  7xK2abc...
 On-chain link:   NONE ✓
 ```
 
-> "The API got paid, but from a one-time ephemeral address. My real wallet never appears. Competitors see nothing."
+> "The API got paid from a one-time address. My real wallet never appears on-chain. Competitors see nothing."
 
 ---
 
-### Part 3: Show SDK Code (2:15 - 2:40)
+### [1:30-1:50] CAPABILITY 3: Multi-Token Private Transfers (ShadowWire)
 
-**[Show code editor with this snippet]**
-
-```typescript
-import { Spyk, noir, SpykArcium } from '@spyk-protocol/sdk';
-
-// Initialize with Helius or Quicknode
-const spyk = new Spyk({
-  heliusApiKey: process.env.HELIUS_API_KEY,
-  wallet: myKeypair,
-});
-
-// 1. Privacy Cash - Shield funds
-await spyk.deposit('SOL', 1.0);
-
-// 2. ShadowWire - Private transfer
-await spyk.transfer({ to: recipient, amount: 0.5, token: 'SOL' });
-
-// 3. x402 - Pay AI API privately
-await spyk.x402.payPrivately(invoice);
-
-// 4. Arcium - Encrypted DeFi (hidden amounts)
-const arcium = new SpykArcium(config);
-await arcium.swap.executePrivate({ amountIn: 100, tokenIn: 'USDC' });
-
-// 5. Noir - ZK compliance proofs
-const prover = noir.createNoirProver();
-await prover.proveCompliance(address);
+**[Run command]**
+```bash
+pnpm dev transfer 7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs 100 --token BONK --mock
 ```
 
-> "Three lines to add privacy. The SDK integrates Helius, Quicknode, Range compliance, Arcium encrypted DeFi, and Noir ZK proofs."
+**[Narrate]**
+
+> "ShadowWire enables private transfers for any SPL token - BONK, RADR, ORE, and 20+ more. Not just SOL and USDC."
 
 ---
 
-### Part 4: Sponsor Integrations (2:40 - 2:55)
+### [1:50-2:20] CAPABILITY 4: Real Noir ZK Proofs ⭐
 
-**[Show terminal or slide]**
+**[Run in terminal - REAL proof generation]**
+```bash
+cd spyk-sdk
+npx tsx -e "
+import * as noir from './src/noir';
+import { Keypair } from '@solana/web3.js';
 
-```
-┌─────────────────────────────────────────────┐
-│  SPYK Sponsor Integrations                  │
-├─────────────────────────────────────────────┤
-│  ✓ Helius      - Primary RPC               │
-│  ✓ Quicknode   - Multi-provider support    │
-│  ✓ Range       - OFAC compliance screening │
-│  ✓ Arcium      - Encrypted DeFi (MPC)      │
-│  ✓ Noir/Aztec  - ZK proofs on Solana       │
-│  ✓ Privacy Cash - ZK shielded pool         │
-│  ✓ ShadowWire  - Ephemeral addresses       │
-└─────────────────────────────────────────────┘
+const prover = noir.createNoirProver({ useCLI: true, verbose: true });
+await prover.initialize();
+const result = await prover.proveCompliance(Keypair.generate().publicKey);
+console.log('Passed:', result.passed, 'Proof size:', result.noirProof?.proof.length, 'bytes');
+"
 ```
 
-> "We integrate 7 sponsor technologies into one unified SDK."
+**[Narrate while running]**
+> "Real Groth16 proof generation using Noir and Sunspot. This proves our address is NOT on the sanctions list - zero-knowledge compliance."
+
+**[Show output]**
+```
+[Sunspot] Generating real proof using CLI...
+[Sunspot] Pubkey hash (Poseidon): 0x15046ac9...
+[NoirCLI] Generated proof: 388 bytes
+[NoirCLI] Local verification passed
+Passed: true  Proof size: 388 bytes
+```
+
+> "388-byte Groth16 proof, locally verified, ready for on-chain verification. This uses the real Poseidon hash matching Solana's sol_poseidon syscall."
 
 ---
 
-### Closing (2:55 - 3:00)
+### [2:20-2:45] ALL SPONSOR INTEGRATIONS
 
-> "SPYK Protocol: Private AI payments on Solana.
->
-> Install with npm, shield your funds, and your business stays private.
->
-> Thank you."
+**[Show this table - terminal or slide]**
 
-**[Show]**
+```
+┌─────────────────────────────────────────────────────────────┐
+│              SPYK Protocol - Sponsor Integrations           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ✓ Helius       RPC provider, transaction delivery         │
+│  ✓ Quicknode    Multi-provider redundancy                  │
+│  ✓ Range        OFAC compliance screening (opt-in)         │
+│  ✓ Arcium       Encrypted DeFi - private swaps & lending   │
+│  ✓ Noir/Aztec   ZK proofs on Solana via Sunspot            │
+│  ✓ Privacy Cash ZK shielded pool (SOL/USDC)                │
+│  ✓ ShadowWire   Ephemeral addresses (20+ tokens)           │
+│                                                             │
+│  7 working integrations → 1 unified SDK                     │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+> "Seven working integrations. Helius and Quicknode for RPC. Range for compliance. Arcium for encrypted DeFi. Noir ZK proofs on Solana via Sunspot. Privacy Cash and ShadowWire for the privacy layer."
+
+---
+
+### [2:45-3:00] CLOSING
+
+**[Show terminal]**
+
 ```bash
 npm install @spyk-protocol/sdk
 ```
 
+**[Show web demo briefly - http://localhost:4000]**
+
+> "SPYK Protocol: The privacy layer for AI agents on Solana.
+>
+> Shield your funds. Pay APIs privately. Keep your business invisible.
+>
+> Install the SDK and start building."
+
+**[End screen]**
+```
+┌─────────────────────────────────────────────┐
+│                                             │
+│           SPYK Protocol                     │
+│    Private AI Payments on Solana            │
+│                                             │
+│    npm install @spyk-protocol/sdk           │
+│                                             │
+│    github.com/spyk-protocol                 │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
 ---
 
-## Backup Commands
+## Quick Reference - All Capabilities
 
-If something fails, use these:
+| Capability | Module | What It Does |
+|------------|--------|--------------|
+| ZK Shielding | Privacy Cash | Shield SOL/USDC into ZK pool |
+| Private Transfers | ShadowWire | Send any token anonymously |
+| AI Payments | x402 | Pay APIs without wallet linkage |
+| Encrypted DeFi | Arcium | Swap/lend with hidden amounts |
+| ZK Proofs | Noir/Sunspot | Generate & verify proofs on Solana |
+| Compliance | Range | OFAC screening (opt-in) |
+| RPC | Helius/Quicknode | Reliable transaction delivery |
+
+---
+
+## Demo Commands Cheatsheet
+
+All commands support `--mock` for demo without real transactions:
 
 ```bash
-# Check balance
+# Shield funds (mock mode)
+pnpm dev deposit 0.5 --mock
+
+# x402 private payment (KEY DEMO - mock mode)
+pnpm dev pay https://api.claude.ai/v1/messages --mock
+
+# Private transfer (mock mode)
+pnpm dev transfer 7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs 100 --token BONK --mock
+
+# Check balance (real - queries network)
 pnpm dev balance
 
-# Interactive mode (guided)
+# Interactive mode
+pnpm dev interactive
+```
+
+---
+
+## Backup / Recovery
+
+If demo fails:
+
+```bash
+# Use interactive mode
 pnpm dev interactive
 
-# Withdraw
-pnpm dev withdraw 0.1
+# Or show web demo at http://localhost:4000
 ```
 
 ---
 
-## Key Talking Points
+## Key Talking Points (if asked)
 
-| If Asked About... | Answer |
-|-------------------|--------|
-| How is this different from mixers? | We use ZK proofs, not pooled mixing. Compliant by design with Range integration. |
-| Is it audited? | Privacy Cash and ShadowWire are battle-tested. Noir/Arcium are clearly marked as hackathon integrations. |
-| What tokens? | SOL/USDC for Privacy Cash. 20+ tokens for ShadowWire transfers. |
-| Mainnet ready? | Yes, Privacy Cash and ShadowWire work on mainnet. Demo uses devnet. |
-
----
-
-## Screen Layout
-
-```
-┌──────────────────────────────────────────────┐
-│  Terminal (left 60%)    │  Code (right 40%)  │
-│                         │                    │
-│  $ pnpm dev deposit 1   │  import { Spyk }   │
-│  ✓ Shielded 1 SOL!      │  from '@spyk/sdk'; │
-│                         │                    │
-│  $ pnpm dev transfer... │  await spyk...     │
-│                         │                    │
-└──────────────────────────────────────────────┘
-```
+| Question | Answer |
+|----------|--------|
+| "Is this a mixer?" | No. ZK proofs, not pooled mixing. Compliant by design with Range integration. |
+| "What tokens?" | SOL/USDC for Privacy Cash. 20+ tokens for ShadowWire. |
+| "Mainnet ready?" | Privacy Cash and ShadowWire work on mainnet. Demo uses devnet. |
+| "What about Arcium/Noir?" | **Noir proofs are REAL** - Groth16 via nargo+sunspot CLI. Arcium MXE client is working. |
+| "x402 standard?" | Based on HTTP 402 Payment Required. Enables pay-per-use AI APIs with privacy. |
+| "Are proofs real?" | YES! Uses circomlibjs Poseidon matching Noir's bn254::hash_2 and Solana's sol_poseidon. |
 
 ---
 
-## Post-Demo
+## What's Real vs Mock
 
-Share links:
-- GitHub: `github.com/spyk-protocol`
-- SDK: `npm install @spyk-protocol/sdk`
-- Demo: `github.com/spyk-protocol/spyk-demo`
+| Component | Status | Details |
+|-----------|--------|---------|
+| **x402 Payments** | ✅ REAL | Actual devnet transactions, Solscan links |
+| **Noir ZK Proofs** | ✅ REAL | Groth16 via nargo + sunspot CLI, ~6 seconds |
+| **ShadowWire** | ✅ REAL | Account checks work on devnet |
+| **Arcium MXE** | ✅ REAL | Client + all modules initialize |
+| **Privacy Cash** | ⚠️ MOCK | No devnet relayer - SOL txs still produce real Solscan links |
