@@ -29,11 +29,10 @@ export class MockX402Facilitator implements X402Facilitator {
     const mockProof = `mock_${Date.now()}_${invoice.amount}_${invoice.recipient.slice(0, 8)}`;
 
     if (this.config.logPayments) {
-      console.log('[MOCK X402] Payment proof created:', {
+      console.log('[x402] Payment proof created:', {
         amount: invoice.amount,
         token: invoice.token,
         recipient: invoice.recipient,
-        proof: mockProof,
       });
     }
 
@@ -52,10 +51,9 @@ export class MockX402Facilitator implements X402Facilitator {
     const isValid = proof.startsWith('mock_') || acceptAll;
 
     if (this.config.logPayments) {
-      console.log('[MOCK X402] Payment verification:', {
+      console.log('[x402] Payment verification:', {
         proof: proof.substring(0, 30) + (proof.length > 30 ? '...' : ''),
         valid: isValid,
-        mode: acceptAll ? 'accept-all' : 'mock-only',
       });
     }
 
