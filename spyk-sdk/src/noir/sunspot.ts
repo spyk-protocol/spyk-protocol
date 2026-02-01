@@ -227,10 +227,10 @@ export class SunspotClient {
       }
 
       if (!this.usingCLI) {
-        this.log('Mock mode enabled - proofs will be simulated');
+        this.log('Simulation mode enabled');
       }
 
-      this.log(`Initializing Sunspot client (mode: ${this.usingCLI ? 'CLI' : 'mock'})`);
+      this.log(`Initializing Sunspot client (mode: ${this.usingCLI ? 'CLI' : 'simulation'})`);
       this.initialized = true;
     } catch (error) {
       if (error instanceof NoirError) throw error;
