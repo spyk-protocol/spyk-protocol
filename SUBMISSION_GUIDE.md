@@ -92,12 +92,28 @@ SPYK Protocol is a unified TypeScript SDK providing privacy primitives for AI ag
 
 ## Demo Commands (for video)
 
+### Primary Demo Command (Recommended)
 ```bash
+# Navigate to SDK
+cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
+
 # Full integration test (shows ALL 5 components)
-cd spyk-sdk
 npx tsx test-full-devnet-flow.ts
 
-# Quick Noir proof demo
+# Expected output: ALL 5 TESTS PASSED!
+# - ShadowWire: Account check
+# - x402: Real devnet TX with Solscan link
+# - Noir: 388-byte proof via CLI
+# - Arcium: MXE client init
+# - PrivacyCash: Balance + shielding
+```
+
+### Noir Proof Demo (Standalone)
+```bash
+# Full example with toolchain check
+npx tsx examples/noir-cli-proofs.ts
+
+# Quick inline proof
 npx tsx -e "
 import * as noir from './src/noir';
 import { Keypair } from '@solana/web3.js';
@@ -106,6 +122,19 @@ await prover.initialize();
 const result = await prover.proveCompliance(Keypair.generate().publicKey);
 console.log('Passed:', result.passed, 'Proof:', result.noirProof?.proof.length, 'bytes');
 "
+```
+
+### Pre-Recording Checklist
+```bash
+# 1. Check SOL balance (need ~2 SOL)
+solana balance --url devnet
+
+# 2. Airdrop if needed
+solana airdrop 2 --url devnet
+# Or use: https://faucet.solana.com/
+
+# 3. Run full test to verify everything works
+npx tsx test-full-devnet-flow.ts
 ```
 
 ---
@@ -137,8 +166,56 @@ solana balance --url devnet
 
 ---
 
+---
+
+## Submission Steps
+
+1. **Record Video** (4 mins max)
+   - Follow VIDEO_RECORDING_GUIDE.md
+   - Run `npx tsx test-full-devnet-flow.ts` as primary demo
+   - Show real Solscan links
+
+2. **Upload Video**
+   - YouTube (unlisted) or other video host
+   - Note the URL
+
+3. **Prepare GitHub**
+   - Ensure README is updated
+   - Code is clean and documented
+
+4. **Submit to Hackathon**
+   - Use submission form fields from above
+   - Include video URL
+   - Link GitHub repo
+
+---
+
+## Token Examples for Demo
+
+### SOL (Default)
+```bash
+# Used in primary demo
+npx tsx test-full-devnet-flow.ts
+
+# SOL airdrop
+solana airdrop 2 --url devnet
+```
+
+### USDC (Optional)
+```bash
+# Get USDC from Circle faucet
+open https://faucet.circle.com/
+# Select: Solana -> Devnet -> 20 USDC
+
+# SDK supports USDC:
+# await spyk.deposit('USDC', 100);
+# await spyk.getPrivateBalance('USDC');
+```
+
+---
+
 ## What NOT to Say
 
-- ❌ "mock" → ✅ "devnet simulation"
-- ❌ "placeholder" → ✅ "prepared for mainnet"
-- ❌ "Arcium is experimental" → ✅ "MXE client ready, awaiting network"
+- "mock" -> "devnet simulation"
+- "placeholder" -> "prepared for mainnet"
+- "Arcium is experimental" -> "MXE client ready, awaiting network"

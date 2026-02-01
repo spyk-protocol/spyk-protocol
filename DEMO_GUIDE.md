@@ -4,6 +4,20 @@
 
 ---
 
+## Quick Start (Recommended for Demo)
+
+```bash
+# Navigate to SDK directory
+cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
+
+# Run full integration test (ALL 5 components)
+npx tsx test-full-devnet-flow.ts
+
+# Expected output: ALL 5 TESTS PASSED!
+```
+
+---
+
 ## Prerequisites
 
 ### 1. Wallet Setup
@@ -371,9 +385,10 @@ Real transaction proofs from testing:
 
 | Feature | Transaction | Solscan Link |
 |---------|-------------|--------------|
-| Privacy Cash Deposit | Shield 0.01 SOL | [54ADKUCyRVKaPGN16KxrhGimJtXGcRRzsH8QWRvxt2xstn3mTtinaTPP1P1rQUvwcncAyhD34rYzY79TqHW7rjcH](https://solscan.io/tx/54ADKUCyRVKaPGN16KxrhGimJtXGcRRzsH8QWRvxt2xstn3mTtinaTPP1P1rQUvwcncAyhD34rYzY79TqHW7rjcH?cluster=devnet) |
-| x402 Funding | Fund ephemeral | [5A9y4gbfaQn9cxHCHwB5LZ2euaKzdE59ByXfKHs4YSvWPm8wXMhNVWgE9PyYW4zpyjMakGwkr4TUhU66QQUawgT4](https://solscan.io/tx/5A9y4gbfaQn9cxHCHwB5LZ2euaKzdE59ByXfKHs4YSvWPm8wXMhNVWgE9PyYW4zpyjMakGwkr4TUhU66QQUawgT4?cluster=devnet) |
-| x402 Payment | Pay API | [StS5XjpSGSPts16GG8DBNhMw38QK5hKVASUVrGJD3JeJuGZ3yuTxoC69sDq6quzNfqdxp9tJtAVMWnDvNHXyDJa](https://solscan.io/tx/StS5XjpSGSPts16GG8DBNhMw38QK5hKVASUVrGJD3JeJuGZ3yuTxoC69sDq6quzNfqdxp9tJtAVMWnDvNHXyDJa?cluster=devnet) |
+| **x402 Payment** | Ephemeral payment | [56WBWxu3...](https://solscan.io/tx/56WBWxu3jghJVH1QqDP2xbGMDo5hpkDjx4fZjrF6v1E4fC4nJhQs2JzMA9uvm7gZ1LgYQ57L3a8Jt4ZfDiNLiZxW?cluster=devnet) |
+| **PrivacyCash** | Shielding TX | [4K2fFois...](https://solscan.io/tx/4K2fFoisarX46aRTnQVHDGdogoZfp2QfjxzsdWDEQRtVPvEZmB6C6Aa2Qdn2VsMwfJ2UYQhoXU2wJV6NVK3di2C2?cluster=devnet) |
+
+> Note: Each run of `test-full-devnet-flow.ts` produces fresh transactions with new Solscan links
 
 ---
 
@@ -417,11 +432,80 @@ Real transaction proofs from testing:
 
 ---
 
+---
+
+## Direct SDK Integration Test (Recommended)
+
+The fastest way to demo all components:
+
+```bash
+cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
+npx tsx test-full-devnet-flow.ts
+```
+
+This tests:
+1. **ShadowWire** - Account check on devnet
+2. **x402** - Real ephemeral payment (produces Solscan link)
+3. **Noir** - Real 388-byte Groth16 proof via CLI
+4. **Arcium** - MXE client initialization
+5. **PrivacyCash** - Balance query and shielding
+
+---
+
+## Noir ZK Proofs (Standalone)
+
+```bash
+# Full proof generation example
+npx tsx examples/noir-cli-proofs.ts
+
+# Quick inline proof
+npx tsx -e "
+import * as noir from './src/noir';
+import { Keypair } from '@solana/web3.js';
+const prover = noir.createNoirProver({ useCLI: true, verbose: true });
+await prover.initialize();
+const result = await prover.proveCompliance(Keypair.generate().publicKey);
+console.log('Passed:', result.passed, 'Proof:', result.noirProof?.proof.length, 'bytes');
+"
+```
+
+---
+
+## Token Support
+
+### SOL (Default)
+```bash
+# All commands use SOL by default
+npx tsx test-full-devnet-flow.ts
+
+# SDK API:
+# await spyk.deposit('SOL', 0.5);
+# await spyk.getPrivateBalance('SOL');
+```
+
+### USDC (Devnet)
+```bash
+# Get USDC from Circle faucet
+open https://faucet.circle.com/
+# Select: Solana -> Devnet -> Paste wallet address
+# Receive: 20 USDC (limit: 20 per 2 hours)
+
+# SDK API:
+# await spyk.deposit('USDC', 100);
+# await spyk.getPrivateBalance('USDC');
+```
+
+---
+
 ## Troubleshooting
 
 ### "Insufficient balance"
 ```bash
-pnpm dev faucet --token SOL --amount 2
+# CLI airdrop
+solana airdrop 2 --url devnet
+
+# Or web faucet (more reliable)
+open https://faucet.solana.com/
 ```
 
 ### "RPC provider required"
