@@ -1,4 +1,4 @@
-import { getSpykClient, isMockMode } from '../config/spyk-client.js';
+import { getSpykClient } from '../config/spyk-client.js';
 import type { Tool } from './index.js';
 
 interface ShieldInput {
@@ -45,17 +45,6 @@ export const spyk_shield: Tool = {
 
     if (!amount || amount <= 0) {
       throw new Error('Amount must be greater than 0');
-    }
-
-    // Check if mock mode is enabled
-    if (isMockMode()) {
-      return {
-        success: true,
-        signature: `mock_shield_${Date.now()}`,
-        amount: `${amount} ${token}`,
-        token,
-        message: `[MOCK] Would shield ${amount} ${token}. Set SPYK_USE_MOCK_FACILITATOR=false for real transactions.`,
-      };
     }
 
     try {

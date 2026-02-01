@@ -1,5 +1,5 @@
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
-import { getSpykClient, isMockMode } from '../config/spyk-client.js';
+import { getSpykClient } from '../config/spyk-client.js';
 import type { Tool } from './index.js';
 import type { BalanceResult as SDKBalanceResult } from '../../../dist/index.mjs';
 
@@ -59,29 +59,24 @@ export const spyk_balance: Tool = {
         publicAmount = await getUsdcBalance(walletPublicKey);
       }
 
-      // Get shielded balance
+      // Get shielded balance via SDK
+      // The SDK uses MockPrivacyCash on devnet which tracks balances in memory
       let shieldedAmount: number;
 
-      if (isMockMode()) {
-        // Mock mode - return placeholder values
-        shieldedAmount = 0;
-      } else {
-        // Real mode - query via Spyk SDK
-        try {
-          const balanceResult = await spyk.getBalance(token) as SDKBalanceResult;
+      try {
+        const balanceResult = await spyk.getBalance(token) as SDKBalanceResult;
 
-          if (token === 'SOL') {
-            // Convert lamports to SOL
-            shieldedAmount = Number(balanceResult.amount) / LAMPORTS_PER_SOL;
-          } else {
-            // Convert base units to USDC
-            shieldedAmount = Number(balanceResult.amount) / Math.pow(10, USDC_DECIMALS);
-          }
-        } catch (balanceError) {
-          // If SDK balance query fails (e.g., no account exists), return 0
-          console.error('[SPYK MCP] Balance query failed:', balanceError);
-          shieldedAmount = 0;
+        if (token === 'SOL') {
+          // Convert lamports to SOL
+          shieldedAmount = Number(balanceResult.amount) / LAMPORTS_PER_SOL;
+        } else {
+          // Convert base units to USDC
+          shieldedAmount = Number(balanceResult.amount) / Math.pow(10, USDC_DECIMALS);
         }
+      } catch (balanceError) {
+        // If SDK balance query fails (e.g., no account exists), return 0
+        console.error('[SPYK MCP] Balance query failed:', balanceError);
+        shieldedAmount = 0;
       }
 
       return {

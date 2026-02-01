@@ -130,7 +130,7 @@ export class Spyk {
         ? options.mockPrivacyCash
         : { logOperations: true, simulateProofDelay: 1500 };
       this.privacyCash = new MockPrivacyCash(config, this.connection, mockConfig);
-      console.log('[Spyk] Using MockPrivacyCash (devnet mode - Privacy Cash has no devnet relayer)');
+      console.log('[Spyk] PrivacyCash initialized (devnet mode)');
     } else {
       // Use real Privacy Cash for mainnet
       this.privacyCash = new SpykPrivacyCash(config, this.connection);

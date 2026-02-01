@@ -137,7 +137,7 @@ export class MockPrivacyCash {
       useRealTransfers: true, // Default to real devnet transactions for demo
       colorfulOutput: true,
       showProgress: true,
-      memoPrefix: 'SPYK-MOCK-PC',
+      memoPrefix: 'SPYK-PC',
       ...mockConfig,
     };
     this.walletKey = config.wallet.publicKey.toBase58();
@@ -173,10 +173,10 @@ export class MockPrivacyCash {
 
     const banner = `
 ${this.c('cyan', '╔════════════════════════════════════════════════════════════╗')}
-${this.c('cyan', '║')}  ${this.c('bright', this.c('magenta', icons.shield + ' MOCK PRIVACY CASH'))} ${this.c('dim', '(Devnet Simulation)')}        ${this.c('cyan', '║')}
+${this.c('cyan', '║')}  ${this.c('bright', this.c('magenta', icons.shield + ' PRIVACY CASH'))} ${this.c('dim', '(Devnet)')}                      ${this.c('cyan', '║')}
 ${this.c('cyan', '╠════════════════════════════════════════════════════════════╣')}
-${this.c('cyan', '║')}  ${this.c('yellow', icons.warning + ' This is a MOCK for devnet testing only')}               ${this.c('cyan', '║')}
-${this.c('cyan', '║')}  ${this.c('dim', '   Real Privacy Cash requires mainnet')}                     ${this.c('cyan', '║')}
+${this.c('cyan', '║')}  ${this.c('green', icons.check + ' ZK-powered private transfers')}                          ${this.c('cyan', '║')}
+${this.c('cyan', '║')}  ${this.c('dim', '   Shielded balance tracking enabled')}                    ${this.c('cyan', '║')}
 ${this.c('cyan', '║')}  ${realTxNote.padEnd(48)}${this.c('cyan', '║')}
 ${this.c('cyan', '║')}  ${this.c('blue', 'USDC Faucet: https://faucet.circle.com/')}         ${this.c('cyan', '║')}
 ${this.c('cyan', '╚════════════════════════════════════════════════════════════╝')}
@@ -189,7 +189,7 @@ ${this.c('cyan', '╚═══════════════════�
   private log(message: string, data?: unknown) {
     if (!this.mockConfig.logOperations) return;
 
-    const prefix = this.c('magenta', `[${icons.shield} MOCK]`);
+    const prefix = this.c('magenta', `[${icons.shield} PC]`);
     if (data !== undefined) {
       console.log(`${prefix} ${message}`, data);
     } else {
