@@ -371,7 +371,9 @@ Real transaction proofs from testing:
 
 | Feature | Transaction | Solscan Link |
 |---------|-------------|--------------|
-| x402 Payment | Ephemeral keypair payment | [3eMznBTeRiR7cMbisGgySuYRo5eSRMxygSn9hsbcbnQr1B1KLzLTi6UPcc1c5gNG89u6RsdgfkaSEegTbu7m7kVs](https://solscan.io/tx/3eMznBTeRiR7cMbisGgySuYRo5eSRMxygSn9hsbcbnQr1B1KLzLTi6UPcc1c5gNG89u6RsdgfkaSEegTbu7m7kVs?cluster=devnet) |
+| Privacy Cash Deposit | Shield 0.01 SOL | [54ADKUCyRVKaPGN16KxrhGimJtXGcRRzsH8QWRvxt2xstn3mTtinaTPP1P1rQUvwcncAyhD34rYzY79TqHW7rjcH](https://solscan.io/tx/54ADKUCyRVKaPGN16KxrhGimJtXGcRRzsH8QWRvxt2xstn3mTtinaTPP1P1rQUvwcncAyhD34rYzY79TqHW7rjcH?cluster=devnet) |
+| x402 Funding | Fund ephemeral | [5A9y4gbfaQn9cxHCHwB5LZ2euaKzdE59ByXfKHs4YSvWPm8wXMhNVWgE9PyYW4zpyjMakGwkr4TUhU66QQUawgT4](https://solscan.io/tx/5A9y4gbfaQn9cxHCHwB5LZ2euaKzdE59ByXfKHs4YSvWPm8wXMhNVWgE9PyYW4zpyjMakGwkr4TUhU66QQUawgT4?cluster=devnet) |
+| x402 Payment | Pay API | [StS5XjpSGSPts16GG8DBNhMw38QK5hKVASUVrGJD3JeJuGZ3yuTxoC69sDq6quzNfqdxp9tJtAVMWnDvNHXyDJa](https://solscan.io/tx/StS5XjpSGSPts16GG8DBNhMw38QK5hKVASUVrGJD3JeJuGZ3yuTxoC69sDq6quzNfqdxp9tJtAVMWnDvNHXyDJa?cluster=devnet) |
 
 ---
 
