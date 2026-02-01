@@ -5,7 +5,8 @@ import {
   DepositSection,
   WithdrawSection,
   TransferSection,
-  BalanceDisplay
+  BalanceDisplay,
+  ComplianceSection
 } from './components';
 
 export default function Home() {
@@ -17,6 +18,7 @@ export default function Home() {
 
         <main className="p-6 space-y-6">
           <PaySection />
+          <ComplianceSection />
           <DepositSection />
           <WithdrawSection />
           <TransferSection />

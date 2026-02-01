@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port ${PORT:-4000}",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port ${PORT:-4000}",
     "lint": "eslint"
   },
   "dependencies": {
     "@radr/shadowwire": "^1.1.15",
     "@solana/spl-token": "^0.4.14",
+    "bs58": "^6.0.0",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",

@@ -1,11 +1,17 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 // Token types supported by Privacy Cash
 export type PrivacyCashToken = 'SOL' | 'USDC';
+
+// Balance state
+export interface BalanceState {
+  shielded: number;
+  public: number;
+  total: number;
+}
 
 // Result types
 export interface TransactionResult {
@@ -13,6 +19,19 @@ export interface TransactionResult {
   status: 'confirmed' | 'failed';
   amount?: number;
   token?: PrivacyCashToken;
+  explorerUrl?: string;
+  error?: string;
+}
+
+// x402 Payment result
+export interface PaymentResult {
+  paid: boolean;
+  verified?: boolean;
+  signature?: string;
+  explorerUrl?: string;
+  amount?: string;
+  apiResponse?: unknown;
+  message?: string;
   error?: string;
 }
 
@@ -21,52 +40,66 @@ export interface UseSpykReturn {
   isConnected: boolean;
   isLoading: boolean;
   error: string | null;
+  balance: BalanceState;
 
   // Deposit functions
   depositSol: (amount: number) => Promise<TransactionResult>;
   depositUsdc: (amount: number) => Promise<TransactionResult>;
 
   // Withdraw functions
-  withdrawSol: (amount: number) => Promise<TransactionResult>;
-  withdrawUsdc: (amount: number) => Promise<TransactionResult>;
+  withdrawSol: (amount: number, recipient?: string) => Promise<TransactionResult>;
+  withdrawUsdc: (amount: number, recipient?: string) => Promise<TransactionResult>;
+
+  // x402 Payment
+  pay: (url: string, maxAmount?: number) => Promise<PaymentResult>;
+
+  // Balance functions
+  fetchBalance: () => Promise<BalanceState>;
+  getShieldedBalance: (token: PrivacyCashToken) => Promise<number>;
 
   // Utility
   clearError: () => void;
   getSolscanUrl: (signature: string) => string;
 }
 
-// USDC decimals
-const USDC_DECIMALS = 6;
-
-// Helius RPC endpoint for devnet
-const getHeliusEndpoint = (apiKey: string) =>
-  `https://devnet.helius-rpc.com/?api-key=${apiKey}`;
-
 /**
  * useSpyk Hook
  *
- * Provides deposit and withdraw functionality for Privacy Cash protocol.
- * Integrates with Solana wallet adapter for browser wallet support.
+ * Provides deposit, withdraw, and x402 payment functionality for Spyk Protocol.
+ * Calls server-side API routes that use the demo wallet for real devnet transactions.
  *
  * @example
  * ```tsx
- * const { depositSol, withdrawSol, isLoading, error } = useSpyk();
+ * const { depositSol, withdrawSol, pay, balance, isLoading, error } = useSpyk();
  *
  * const handleDeposit = async () => {
  *   const result = await depositSol(0.1);
  *   if (result.status === 'confirmed') {
  *     console.log('Deposited!', result.signature);
+ *     console.log('View on Solscan:', result.explorerUrl);
+ *   }
+ * };
+ *
+ * const handlePayment = async () => {
+ *   const result = await pay('https://api.example.com/premium-endpoint', 0.01);
+ *   if (result.paid) {
+ *     console.log('Paid privately!', result.apiResponse);
  *   }
  * };
  * ```
  */
 export function useSpyk(): UseSpykReturn {
-  const { publicKey, signTransaction, connected } = useWallet();
-  const { connection } = useConnection();
+  const { connected } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [balance, setBalance] = useState<BalanceState>({
+    shielded: 0,
+    public: 0,
+    total: 0,
+  });
 
-  const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY || '';
+  // Use ref to track if initial fetch has been done
+  const initialFetchDone = useRef(false);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -80,37 +113,63 @@ export function useSpyk(): UseSpykReturn {
   }, []);
 
   /**
-   * Initialize Privacy Cash client dynamically
-   * Note: The Privacy Cash SDK currently requires server-side execution
-   * This implementation provides a fallback with helpful error messaging
+   * Fetch balance from API
    */
-  const initializePrivacyCash = useCallback(async () => {
-    if (!publicKey) {
-      throw new Error('Wallet not connected');
+  const fetchBalance = useCallback(async (): Promise<BalanceState> => {
+    try {
+      const res = await fetch('/api/spyk/balance');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(errorData.error || 'Failed to fetch balance');
+      }
+      const data = await res.json();
+      const newBalance: BalanceState = {
+        shielded: data.shielded ?? 0,
+        public: data.public ?? 0,
+        total: data.total ?? 0,
+      };
+      setBalance(newBalance);
+      return newBalance;
+    } catch (err) {
+      console.error('[useSpyk] Balance fetch error:', err);
+      // Return default balance on error
+      return { shielded: 0, public: 0, total: 0 };
     }
-
-    if (!heliusApiKey) {
-      throw new Error('Helius API key not configured. Please set NEXT_PUBLIC_HELIUS_API_KEY in your environment.');
-    }
-
-    // Note: Privacy Cash SDK requires a Keypair for signing
-    // Browser wallets use wallet adapters instead
-    // This is a limitation that needs SDK-level support
-    return {
-      rpcUrl: getHeliusEndpoint(heliusApiKey),
-      publicKey,
-    };
-  }, [publicKey, heliusApiKey]);
+  }, []);
 
   /**
-   * Deposit SOL into Privacy Cash
+   * Get shielded balance for a specific token (SOL or USDC)
+   * Note: Currently only returns SOL shielded balance from the balance API
+   */
+  const getShieldedBalance = useCallback(async (token: PrivacyCashToken): Promise<number> => {
+    const bal = await fetchBalance();
+    // Currently the balance API only returns SOL shielded balance
+    // USDC balance would need additional API support
+    if (token === 'SOL') {
+      return bal.shielded;
+    }
+    // For USDC, return 0 for now (would need separate API endpoint)
+    return 0;
+  }, [fetchBalance]);
+
+  /**
+   * Fetch balance on mount and periodically
+   */
+  useEffect(() => {
+    // Only fetch on mount if not already done
+    if (!initialFetchDone.current) {
+      initialFetchDone.current = true;
+      fetchBalance();
+    }
+    // Refresh balance every 30 seconds
+    const interval = setInterval(fetchBalance, 30000);
+    return () => clearInterval(interval);
+  }, [fetchBalance]);
+
+  /**
+   * Deposit SOL into Privacy Cash (shielded pool)
    */
   const depositSol = useCallback(async (amount: number): Promise<TransactionResult> => {
-    if (!connected || !publicKey || !signTransaction) {
-      setError('Please connect your wallet first');
-      return { signature: '', status: 'failed', error: 'Wallet not connected' };
-    }
-
     if (amount <= 0) {
       setError('Amount must be greater than 0');
       return { signature: '', status: 'failed', error: 'Invalid amount' };
@@ -120,39 +179,27 @@ export function useSpyk(): UseSpykReturn {
     setError(null);
 
     try {
-      // Check wallet balance first
-      const balance = await connection.getBalance(publicKey);
-      const lamportsNeeded = amount * LAMPORTS_PER_SOL;
-      const minReserve = 0.01 * LAMPORTS_PER_SOL; // Keep some for fees
+      const res = await fetch('/api/spyk/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, token: 'SOL' }),
+      });
 
-      if (balance < lamportsNeeded + minReserve) {
-        const available = (balance / LAMPORTS_PER_SOL).toFixed(4);
-        throw new Error(`Insufficient balance. You have ${available} SOL, need ${amount} SOL plus fees.`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Deposit failed');
       }
 
-      // Note: Full Privacy Cash integration requires the SDK to support wallet adapters
-      // For now, we simulate the deposit flow to show the UI working
-      // In production, this would call the Privacy Cash SDK
-
-      // Simulate network delay for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // For demo: Create a mock signature
-      // In production: This would be the actual transaction signature from Privacy Cash
-      const mockSignature = `demo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-      // TODO: Replace with actual Privacy Cash SDK call when browser support is added:
-      // const privacyCash = new PrivacyCash({ RPC_url: rpcUrl, owner: walletAdapter });
-      // const result = await privacyCash.deposit({ lamports: lamportsNeeded });
-      // return { signature: result.tx, status: 'confirmed', amount, token: 'SOL' };
-
-      console.log(`[DEMO] Would deposit ${amount} SOL via Privacy Cash`);
+      // Refresh balance after deposit
+      await fetchBalance();
 
       return {
-        signature: mockSignature,
+        signature: data.signature,
         status: 'confirmed',
         amount,
         token: 'SOL',
+        explorerUrl: data.explorerUrl,
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Deposit failed';
@@ -161,17 +208,12 @@ export function useSpyk(): UseSpykReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [connected, publicKey, signTransaction, connection]);
+  }, [fetchBalance]);
 
   /**
-   * Deposit USDC into Privacy Cash
+   * Deposit USDC into Privacy Cash (shielded pool)
    */
   const depositUsdc = useCallback(async (amount: number): Promise<TransactionResult> => {
-    if (!connected || !publicKey || !signTransaction) {
-      setError('Please connect your wallet first');
-      return { signature: '', status: 'failed', error: 'Wallet not connected' };
-    }
-
     if (amount <= 0) {
       setError('Amount must be greater than 0');
       return { signature: '', status: 'failed', error: 'Invalid amount' };
@@ -181,23 +223,27 @@ export function useSpyk(): UseSpykReturn {
     setError(null);
 
     try {
-      // Simulate network delay for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const res = await fetch('/api/spyk/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, token: 'USDC' }),
+      });
 
-      const mockSignature = `demo_usdc_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const data = await res.json();
 
-      // TODO: Replace with actual Privacy Cash SDK call:
-      // const privacyCash = new PrivacyCash({ RPC_url: rpcUrl, owner: walletAdapter });
-      // const baseUnits = Math.floor(amount * Math.pow(10, USDC_DECIMALS));
-      // const result = await privacyCash.depositUSDC({ base_units: baseUnits });
+      if (!res.ok) {
+        throw new Error(data.error || 'Deposit failed');
+      }
 
-      console.log(`[DEMO] Would deposit ${amount} USDC via Privacy Cash`);
+      // Refresh balance after deposit
+      await fetchBalance();
 
       return {
-        signature: mockSignature,
+        signature: data.signature,
         status: 'confirmed',
         amount,
         token: 'USDC',
+        explorerUrl: data.explorerUrl,
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Deposit failed';
@@ -206,17 +252,12 @@ export function useSpyk(): UseSpykReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [connected, publicKey, signTransaction]);
+  }, [fetchBalance]);
 
   /**
-   * Withdraw SOL from Privacy Cash
+   * Withdraw SOL from Privacy Cash (shielded pool)
    */
-  const withdrawSol = useCallback(async (amount: number): Promise<TransactionResult> => {
-    if (!connected || !publicKey || !signTransaction) {
-      setError('Please connect your wallet first');
-      return { signature: '', status: 'failed', error: 'Wallet not connected' };
-    }
-
+  const withdrawSol = useCallback(async (amount: number, recipient?: string): Promise<TransactionResult> => {
     if (amount <= 0) {
       setError('Amount must be greater than 0');
       return { signature: '', status: 'failed', error: 'Invalid amount' };
@@ -226,22 +267,27 @@ export function useSpyk(): UseSpykReturn {
     setError(null);
 
     try {
-      // Simulate network delay for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const res = await fetch('/api/spyk/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, token: 'SOL', recipient }),
+      });
 
-      const mockSignature = `demo_withdraw_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const data = await res.json();
 
-      // TODO: Replace with actual Privacy Cash SDK call:
-      // const privacyCash = new PrivacyCash({ RPC_url: rpcUrl, owner: walletAdapter });
-      // const result = await privacyCash.withdraw({ lamports: amount * LAMPORTS_PER_SOL });
+      if (!res.ok) {
+        throw new Error(data.error || 'Withdraw failed');
+      }
 
-      console.log(`[DEMO] Would withdraw ${amount} SOL via Privacy Cash`);
+      // Refresh balance after withdrawal
+      await fetchBalance();
 
       return {
-        signature: mockSignature,
+        signature: data.signature,
         status: 'confirmed',
         amount,
         token: 'SOL',
+        explorerUrl: data.explorerUrl,
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Withdraw failed';
@@ -250,17 +296,12 @@ export function useSpyk(): UseSpykReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [connected, publicKey, signTransaction]);
+  }, [fetchBalance]);
 
   /**
-   * Withdraw USDC from Privacy Cash
+   * Withdraw USDC from Privacy Cash (shielded pool)
    */
-  const withdrawUsdc = useCallback(async (amount: number): Promise<TransactionResult> => {
-    if (!connected || !publicKey || !signTransaction) {
-      setError('Please connect your wallet first');
-      return { signature: '', status: 'failed', error: 'Wallet not connected' };
-    }
-
+  const withdrawUsdc = useCallback(async (amount: number, recipient?: string): Promise<TransactionResult> => {
     if (amount <= 0) {
       setError('Amount must be greater than 0');
       return { signature: '', status: 'failed', error: 'Invalid amount' };
@@ -270,23 +311,27 @@ export function useSpyk(): UseSpykReturn {
     setError(null);
 
     try {
-      // Simulate network delay for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const res = await fetch('/api/spyk/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, token: 'USDC', recipient }),
+      });
 
-      const mockSignature = `demo_withdraw_usdc_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const data = await res.json();
 
-      // TODO: Replace with actual Privacy Cash SDK call:
-      // const privacyCash = new PrivacyCash({ RPC_url: rpcUrl, owner: walletAdapter });
-      // const baseUnits = Math.floor(amount * Math.pow(10, USDC_DECIMALS));
-      // const result = await privacyCash.withdrawUSDC({ base_units: baseUnits });
+      if (!res.ok) {
+        throw new Error(data.error || 'Withdraw failed');
+      }
 
-      console.log(`[DEMO] Would withdraw ${amount} USDC via Privacy Cash`);
+      // Refresh balance after withdrawal
+      await fetchBalance();
 
       return {
-        signature: mockSignature,
+        signature: data.signature,
         status: 'confirmed',
         amount,
         token: 'USDC',
+        explorerUrl: data.explorerUrl,
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Withdraw failed';
@@ -295,16 +340,76 @@ export function useSpyk(): UseSpykReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [connected, publicKey, signTransaction]);
+  }, [fetchBalance]);
+
+  /**
+   * Make a private x402 payment to a URL
+   *
+   * Flow:
+   * 1. Fetches the URL to check for 402 Payment Required
+   * 2. Parses x402 payment details
+   * 3. Validates amount against maxAmount
+   * 4. Makes private payment from shielded balance
+   * 5. Retries original URL with payment proof
+   * 6. Returns the API response
+   */
+  const pay = useCallback(async (url: string, maxAmount = 0.01): Promise<PaymentResult> => {
+    if (!url) {
+      setError('URL is required');
+      return { paid: false, error: 'URL is required' };
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/spyk/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, maxAmount }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Payment failed');
+      }
+
+      // Refresh balance after payment
+      if (data.paid) {
+        await fetchBalance();
+      }
+
+      return {
+        paid: data.paid,
+        verified: data.verified,
+        signature: data.signature,
+        explorerUrl: data.explorerUrl,
+        amount: data.amount,
+        apiResponse: data.apiResponse,
+        message: data.message,
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Payment failed';
+      setError(errorMessage);
+      return { paid: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchBalance]);
 
   return {
     isConnected: connected,
     isLoading,
     error,
+    balance,
     depositSol,
     depositUsdc,
     withdrawSol,
     withdrawUsdc,
+    pay,
+    fetchBalance,
+    getShieldedBalance,
     clearError,
     getSolscanUrl,
   };

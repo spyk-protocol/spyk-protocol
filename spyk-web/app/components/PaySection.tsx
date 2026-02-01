@@ -37,7 +37,7 @@ interface ApiResponse {
 
 export function PaySection() {
   const { connected } = useWallet();
-  const { getShieldedBalance, isLoading } = useSpyk();
+  const { pay, getShieldedBalance, isLoading, getSolscanUrl } = useSpyk();
   const { triggerRefresh } = useBalanceRefresh();
 
   const [apiUrl, setApiUrl] = useState('/api/premium-data');
@@ -47,6 +47,8 @@ export function PaySection() {
   const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shieldedBalance, setShieldedBalance] = useState<string | null>(null);
+  const [lastTxSignature, setLastTxSignature] = useState<string | null>(null);
+  const [paidAmount, setPaidAmount] = useState<string | null>(null);
 
   const generateEphemeralAddress = () => {
     // Generate a mock ephemeral address for demo
@@ -63,6 +65,8 @@ export function PaySection() {
     setApiResponse(null);
     setInvoice(null);
     setEphemeralAddress(null);
+    setLastTxSignature(null);
+    setPaidAmount(null);
 
     try {
       // Step 1: Check shielded balance
@@ -72,7 +76,7 @@ export function PaySection() {
       const balance = await getShieldedBalance('SOL');
       setShieldedBalance(balance?.toString() || '0');
 
-      // Step 2: Request API
+      // Step 2: Request API to check for 402
       setStep('requesting-api');
       await new Promise(r => setTimeout(r, 800));
 
@@ -84,37 +88,39 @@ export function PaySection() {
         setStep('invoice-received');
         await new Promise(r => setTimeout(r, 1000));
 
-        // Step 3: Generate ephemeral
+        // Step 3: Generate ephemeral (visual indicator)
         setStep('generating-ephemeral');
         await new Promise(r => setTimeout(r, 600));
         const ephemeral = generateEphemeralAddress();
         setEphemeralAddress(ephemeral);
 
-        // Step 4: Pay (mock)
+        // Step 4: Make real payment via useSpyk hook
         setStep('paying');
-        await new Promise(r => setTimeout(r, 1000));
 
-        // Step 5: Verify payment
-        setStep('verifying');
-        const verifyResponse = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ paymentProof: `spyk_proof_${ephemeral.slice(0, 16)}` })
-        });
+        // Use the real pay function from useSpyk
+        const payResult = await pay(apiUrl, 0.01);
 
-        if (!verifyResponse.ok) {
-          throw new Error('Payment verification failed');
+        if (!payResult.paid) {
+          throw new Error(payResult.error || 'Payment failed');
         }
 
+        // Store the real transaction signature
+        if (payResult.signature) {
+          setLastTxSignature(payResult.signature);
+        }
+        if (payResult.amount) {
+          setPaidAmount(payResult.amount);
+        }
+
+        // Step 5: Payment verified
+        setStep('verifying');
         await new Promise(r => setTimeout(r, 500));
 
-        // Step 6: Get data
-        const dataResponse = await fetch(apiUrl, {
-          headers: { 'X-Payment-Proof': `spyk_proof_${ephemeral.slice(0, 16)}` }
-        });
+        // Store the API response
+        if (payResult.apiResponse) {
+          setApiResponse(payResult.apiResponse as ApiResponse);
+        }
 
-        const apiData = await dataResponse.json();
-        setApiResponse(apiData);
         setStep('complete');
         triggerRefresh();
 
@@ -130,7 +136,7 @@ export function PaySection() {
       setError(err instanceof Error ? err.message : 'Unknown error');
       setStep('error');
     }
-  }, [apiUrl, getShieldedBalance, triggerRefresh]);
+  }, [apiUrl, getShieldedBalance, pay, triggerRefresh]);
 
   const reset = () => {
     setStep('idle');
@@ -138,6 +144,8 @@ export function PaySection() {
     setEphemeralAddress(null);
     setApiResponse(null);
     setError(null);
+    setLastTxSignature(null);
+    setPaidAmount(null);
   };
 
   const getStepIcon = (s: PaymentStep) => {
@@ -258,17 +266,34 @@ export function PaySection() {
       {step === 'complete' && apiResponse && (
         <div className="mb-4 space-y-4">
           <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-            <h3 className="text-sm font-medium text-green-300 mb-2">✅ Private Payment Complete!</h3>
+            <h3 className="text-sm font-medium text-green-300 mb-2">Private Payment Complete!</h3>
             <div className="space-y-1 text-sm">
               <p className="text-zinc-400">Your wallet: <span className="text-green-400">(hidden)</span></p>
               <p className="text-zinc-400">Paid from: <span className="font-mono text-zinc-300">{ephemeralAddress?.slice(0, 16)}...</span></p>
-              <p className="text-zinc-400">On-chain link: <span className="text-green-400 font-bold">NONE ✓</span></p>
+              {paidAmount && (
+                <p className="text-zinc-400">Amount: <span className="text-green-400 font-medium">{paidAmount} SOL</span></p>
+              )}
+              {lastTxSignature && (
+                <div className="mt-2">
+                  <a
+                    href={getSolscanUrl(lastTxSignature)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-green-500 hover:text-green-400 underline inline-flex items-center gap-1"
+                  >
+                    View on Solscan
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 
           {apiResponse.data && (
             <div className="p-4 bg-zinc-800/50 rounded-lg">
-              <h3 className="text-sm font-medium text-zinc-300 mb-2">📊 API Response</h3>
+              <h3 className="text-sm font-medium text-zinc-300 mb-2">API Response</h3>
               <pre className="text-xs text-zinc-400 overflow-auto">
 {JSON.stringify(apiResponse.data, null, 2)}
               </pre>
