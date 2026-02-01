@@ -206,7 +206,7 @@ export class SunspotClient {
       // Mock tree for development
       return {
         root: new Uint8Array(32).fill(0), // Placeholder root
-        depth: 256,
+        depth: 254, // Match circuit TREE_DEPTH
         version: BigInt(1),
       };
     } catch (error) {
@@ -345,7 +345,7 @@ export class SunspotClient {
       smt_root: smtRoot,
       pubkey_hash: pubkeyHash,
       pubkey: Array.from(address),
-      siblings: proofPath.siblings.slice(0, 256).map((s) => this.bytesToHex(s)),
+      siblings: proofPath.siblings.slice(0, 254).map((s) => this.bytesToHex(s)), // Match circuit TREE_DEPTH
       leaf_value: '0',
     };
 
@@ -504,11 +504,18 @@ export class SunspotClient {
   }
 
   private hashAddress(address: Uint8Array): string {
-    // Simple hash for now - in production would use Poseidon
+    // BN254 field modulus (same as used by Noir's bn254 curves)
+    const BN254_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+    // Convert address to big int
     let hash = 0n;
     for (let i = 0; i < address.length; i++) {
       hash = (hash << 8n) | BigInt(address[i]);
     }
+
+    // Reduce modulo field to ensure it's a valid field element
+    hash = hash % BN254_MODULUS;
+
     return '0x' + hash.toString(16).padStart(64, '0');
   }
 

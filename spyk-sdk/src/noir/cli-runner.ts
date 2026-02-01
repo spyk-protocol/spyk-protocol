@@ -601,13 +601,42 @@ export function createCLIRunner(
  * Searches common locations relative to the SDK
  */
 export function getDefaultCircuitDir(): string | null {
+  // Try env var first
+  if (process.env.CIRCUIT_DIR && fs.existsSync(path.join(process.env.CIRCUIT_DIR, 'Nargo.toml'))) {
+    return process.env.CIRCUIT_DIR;
+  }
+
+  // Get directory name in ESM-compatible way
+  let dirname: string;
+  try {
+    // Try __dirname for CommonJS
+    dirname = __dirname;
+  } catch {
+    // ESM fallback - use current file URL
+    try {
+      dirname = path.dirname(new URL(import.meta.url).pathname);
+    } catch {
+      // Ultimate fallback
+      dirname = process.cwd();
+    }
+  }
+
   const searchPaths = [
-    // Relative to SDK
-    path.join(__dirname, '../../circuits/smt_exclusion'),
-    path.join(__dirname, '../../../circuits/smt_exclusion'),
-    // noir-examples in workspace
-    path.join(__dirname, '../../../noir-examples/circuits/smt_exclusion'),
-    path.join(__dirname, '../../../../noir-examples/circuits/smt_exclusion'),
+    // Relative to SDK dist
+    path.join(dirname, '../../circuits/smt_exclusion'),
+    path.join(dirname, '../../../circuits/smt_exclusion'),
+    // noir-examples in workspace (from dist)
+    path.join(dirname, '../../../noir-examples/circuits/smt_exclusion'),
+    path.join(dirname, '../../../../noir-examples/circuits/smt_exclusion'),
+    // Absolute paths for monorepo
+    path.join(dirname, '../../noir-examples/circuits/smt_exclusion'),
+    // From spyk-sdk root
+    path.resolve(dirname, '../../../noir-examples/circuits/smt_exclusion'),
+    // Common workspace locations
+    process.cwd() + '/noir-examples/circuits/smt_exclusion',
+    process.cwd() + '/../noir-examples/circuits/smt_exclusion',
+    // Absolute fallback for known monorepo structure
+    process.env.HOME + '/Documents/Web3/Spyk Protocol/noir-examples/circuits/smt_exclusion',
   ];
 
   for (const searchPath of searchPaths) {
