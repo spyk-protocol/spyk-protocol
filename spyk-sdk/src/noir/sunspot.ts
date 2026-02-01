@@ -26,6 +26,57 @@ import {
   ToolchainStatus,
 } from './cli-runner';
 
+// Poseidon hash for pubkey_to_index (matches Noir's bn254::hash_2)
+// circomlibjs provides the same Poseidon implementation used by Noir
+let poseidonInstance: ((inputs: bigint[]) => bigint) | null = null;
+
+async function getPoseidon(): Promise<(inputs: bigint[]) => bigint> {
+  if (poseidonInstance) return poseidonInstance;
+
+  try {
+    // Dynamic import to avoid bundling issues
+    const circomlibjs = await import('circomlibjs');
+    const poseidon = await circomlibjs.buildPoseidon();
+    poseidonInstance = (inputs: bigint[]) => {
+      const hash = poseidon(inputs);
+      return poseidon.F.toObject(hash);
+    };
+    return poseidonInstance;
+  } catch (error) {
+    throw new NoirError(
+      'Failed to initialize Poseidon hash (circomlibjs not available)',
+      NoirErrorCodes.PROVER_UNAVAILABLE,
+      error
+    );
+  }
+}
+
+// Cache for empty tree hashes (computed once)
+let emptyTreeHashesCache: bigint[] | null = null;
+
+/**
+ * Compute the hash chain for an empty SMT
+ * defaultHashes[0] = 0 (empty leaf)
+ * defaultHashes[i] = poseidon(defaultHashes[i-1], defaultHashes[i-1])
+ */
+async function getEmptyTreeHashes(depth: number): Promise<bigint[]> {
+  if (emptyTreeHashesCache && emptyTreeHashesCache.length >= depth + 1) {
+    return emptyTreeHashesCache;
+  }
+
+  const poseidon = await getPoseidon();
+  const hashes: bigint[] = new Array(depth + 1);
+  hashes[0] = 0n; // Empty leaf
+
+  for (let i = 1; i <= depth; i++) {
+    const prev = hashes[i - 1];
+    hashes[i] = poseidon([prev, prev]);
+  }
+
+  emptyTreeHashesCache = hashes;
+  return hashes;
+}
+
 // ============================================
 // Constants
 // ============================================
@@ -203,10 +254,23 @@ export class SunspotClient {
       // const response = await fetch(`${this.config.treeServiceEndpoint}/ofac/tree`);
       // const data = await response.json();
 
-      // Mock tree for development
+      // Compute the proper empty tree root using Poseidon hash chain
+      const TREE_DEPTH = 254;
+      const emptyTreeHashes = await getEmptyTreeHashes(TREE_DEPTH);
+      const emptyRoot = emptyTreeHashes[TREE_DEPTH];
+
+      // Convert bigint root to 32-byte Uint8Array
+      const rootHex = emptyRoot.toString(16).padStart(64, '0');
+      const rootBytes = new Uint8Array(32);
+      for (let i = 0; i < 32; i++) {
+        rootBytes[i] = parseInt(rootHex.slice(i * 2, i * 2 + 2), 16);
+      }
+
+      this.log(`Empty tree root: 0x${rootHex}`);
+
       return {
-        root: new Uint8Array(32).fill(0), // Placeholder root
-        depth: 254, // Match circuit TREE_DEPTH
+        root: rootBytes,
+        depth: TREE_DEPTH,
         version: BigInt(1),
       };
     } catch (error) {
@@ -237,14 +301,27 @@ export class SunspotClient {
       // );
       // const data = await response.json();
 
-      // Mock proof path for development
+      // For an empty tree, siblings at level i are the default hash for that level
       const depth = tree.depth;
-      const siblings: Uint8Array[] = [];
-      const pathBits: boolean[] = [];
+      const emptyTreeHashes = await getEmptyTreeHashes(depth);
 
+      // Convert bigint hashes to Uint8Array siblings
+      const siblings: Uint8Array[] = [];
       for (let i = 0; i < depth; i++) {
-        siblings.push(new Uint8Array(32).fill(0));
-        pathBits.push((address[Math.floor(i / 8)] & (1 << (i % 8))) !== 0);
+        const hashHex = emptyTreeHashes[i].toString(16).padStart(64, '0');
+        const siblingBytes = new Uint8Array(32);
+        for (let j = 0; j < 32; j++) {
+          siblingBytes[j] = parseInt(hashHex.slice(j * 2, j * 2 + 2), 16);
+        }
+        siblings.push(siblingBytes);
+      }
+
+      // Compute path bits from pubkey hash
+      const pubkeyHash = await this.hashAddressWithPoseidon(address);
+      const hashBigint = BigInt(pubkeyHash);
+      const pathBits: boolean[] = [];
+      for (let i = 0; i < depth; i++) {
+        pathBits.push((hashBigint >> BigInt(i) & 1n) === 1n);
       }
 
       return {
@@ -338,14 +415,22 @@ export class SunspotClient {
     const proofPath = await this.getNonMembershipPath(address, tree);
 
     // Convert to circuit inputs
-    const pubkeyHash = this.hashAddress(address);
+    // Use Poseidon hash to match circuit's pubkey_to_index function
+    const pubkeyHash = await this.hashAddressWithPoseidon(address);
     const smtRoot = this.bytesToHex(tree.root);
+
+    this.log(`Pubkey hash (Poseidon): ${pubkeyHash}`);
+    this.log(`SMT root: ${smtRoot}`);
+
+    // Convert siblings to hex strings
+    const siblingHexes = proofPath.siblings.slice(0, 254).map((s) => this.bytesToHex(s));
+    this.log(`First 3 siblings: ${siblingHexes.slice(0, 3).join(', ')}`);
 
     const inputs = {
       smt_root: smtRoot,
       pubkey_hash: pubkeyHash,
       pubkey: Array.from(address),
-      siblings: proofPath.siblings.slice(0, 254).map((s) => this.bytesToHex(s)), // Match circuit TREE_DEPTH
+      siblings: siblingHexes,
       leaf_value: '0',
     };
 
@@ -503,17 +588,48 @@ export class SunspotClient {
     return '0x' + Buffer.from(bytes).toString('hex');
   }
 
+  /**
+   * Hash a 32-byte address to a field element using Poseidon
+   * Matches Noir circuit's pubkey_to_index function exactly:
+   *   let low = bytes16_to_field(pubkey, 0);   // First 16 bytes (little-endian)
+   *   let high = bytes16_to_field(pubkey, 16); // Last 16 bytes (little-endian)
+   *   poseidon_hash_2(low, high)
+   */
+  private async hashAddressWithPoseidon(address: Uint8Array): Promise<string> {
+    const poseidon = await getPoseidon();
+
+    // bytes16_to_field: Convert 16 bytes to Field (little-endian)
+    // This matches the Noir circuit's bytes16_to_field function
+    const bytes16ToField = (bytes: Uint8Array, start: number): bigint => {
+      let result = 0n;
+      let multiplier = 1n;
+      for (let i = 0; i < 16; i++) {
+        result = result + BigInt(bytes[start + i]) * multiplier;
+        multiplier = multiplier * 256n;
+      }
+      return result;
+    };
+
+    // Split 32-byte pubkey into two halves (matching circuit)
+    const low = bytes16ToField(address, 0); // First 16 bytes
+    const high = bytes16ToField(address, 16); // Last 16 bytes
+
+    // Compute Poseidon hash (matches poseidon_hash_2 in circuit)
+    const hash = poseidon([low, high]);
+
+    return '0x' + hash.toString(16).padStart(64, '0');
+  }
+
+  // Synchronous fallback (less accurate, for backwards compatibility)
   private hashAddress(address: Uint8Array): string {
-    // BN254 field modulus (same as used by Noir's bn254 curves)
+    // This is a simple fallback - prefer hashAddressWithPoseidon for real proofs
+    // BN254 field modulus
     const BN254_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
-    // Convert address to big int
     let hash = 0n;
     for (let i = 0; i < address.length; i++) {
       hash = (hash << 8n) | BigInt(address[i]);
     }
-
-    // Reduce modulo field to ensure it's a valid field element
     hash = hash % BN254_MODULUS;
 
     return '0x' + hash.toString(16).padStart(64, '0');
