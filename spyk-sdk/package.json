@@ -37,6 +37,7 @@
     "@coral-xyz/anchor": "^0.32.1",
     "@noble/ed25519": "^3.0.0",
     "@radr/shadowwire": "^1.1.15",
+    "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.95.8",
     "helius-sdk": "^1.5.1",
     "privacycash": "^1.1.11",
