@@ -8,7 +8,8 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
-import { Keypair, PublicKey } from '@solana/web3.js';
+import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import {
   Spyk,
   SpykError,
@@ -19,6 +20,7 @@ import {
   TransactionError,
   DevnetX402Facilitator,
   MockX402Facilitator,
+  noir,
   type Network,
 } from '@spyk-protocol/sdk';
 
@@ -31,8 +33,13 @@ const ALL_TOKENS = ['SOL', 'USDC', 'BONK', 'RADR', 'ORE'];
 
 function loadConfig(): { spyk: Spyk; network: Network } {
   const heliusApiKey = process.env.HELIUS_API_KEY;
-  if (!heliusApiKey) {
-    console.error(chalk.red('Error: HELIUS_API_KEY environment variable is required'));
+  const quicknodeUrl = process.env.QUICKNODE_URL;
+  const customRpcUrl = process.env.RPC_URL;
+
+  // Need at least one RPC provider
+  if (!heliusApiKey && !quicknodeUrl && !customRpcUrl) {
+    console.error(chalk.red('Error: RPC provider required'));
+    console.error(chalk.yellow('Set one of: HELIUS_API_KEY, QUICKNODE_URL, or RPC_URL'));
     process.exit(1);
   }
 
@@ -54,11 +61,15 @@ function loadConfig(): { spyk: Spyk; network: Network } {
 
   const network = (process.env.NETWORK || 'devnet') as Network;
 
-  const spyk = new Spyk({
-    heliusApiKey,
-    network,
-    wallet,
-  });
+  // Priority: Custom RPC > Quicknode > Helius (default)
+  let spyk: Spyk;
+  if (customRpcUrl) {
+    spyk = new Spyk({ quicknodeUrl: customRpcUrl, network, wallet });
+  } else if (quicknodeUrl) {
+    spyk = new Spyk({ quicknodeUrl, network, wallet });
+  } else {
+    spyk = new Spyk({ heliusApiKey: heliusApiKey!, network, wallet });
+  }
 
   return { spyk, network };
 }
@@ -490,6 +501,428 @@ program
     }
   });
 
+// Faucet command - Get devnet tokens
+program
+  .command('faucet')
+  .option('-t, --token <token>', 'Token to get (SOL or USDC)', 'SOL')
+  .option('-a, --amount <amount>', 'Amount to request (SOL only)', '1')
+  .description('Get devnet tokens for testing (SOL airdrop, USDC faucet instructions)')
+  .action(async (options: { token: string; amount: string }) => {
+    const token = options.token.toUpperCase();
+    const amount = parseFloat(options.amount);
+
+    console.log(chalk.bold.cyan('\n💧 SPYK Devnet Faucet\n'));
+
+    if (token === 'SOL') {
+      // SOL airdrop
+      console.log(chalk.white('Getting devnet SOL...\n'));
+      console.log(chalk.yellow('Option 1: Web Faucet (Recommended)'));
+      console.log(chalk.white('  https://faucet.solana.com/'));
+      console.log(chalk.gray('  Up to 5 SOL per request, 2x per hour\n'));
+
+      console.log(chalk.yellow('Option 2: CLI Airdrop'));
+
+      const { spyk, network } = loadConfig();
+
+      if (network !== 'devnet') {
+        console.log(chalk.red('  Airdrop only works on devnet!'));
+        return;
+      }
+
+      const spinner = ora(`Requesting ${amount} SOL airdrop...`).start();
+
+      try {
+        const signature = await spyk.rpcConnection.requestAirdrop(
+          spyk.walletPublicKey,
+          amount * LAMPORTS_PER_SOL
+        );
+
+        spinner.text = 'Confirming airdrop...';
+        await spyk.rpcConnection.confirmTransaction(signature);
+
+        const balance = await spyk.rpcConnection.getBalance(spyk.walletPublicKey);
+        spinner.succeed(chalk.green(`Received ${amount} SOL!`));
+        console.log(chalk.cyan(`  New balance: ${(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL`));
+        console.log(chalk.gray(`  Tx: https://solscan.io/tx/${signature}?cluster=devnet`));
+      } catch (error) {
+        spinner.fail(chalk.red('Airdrop failed'));
+        console.log(chalk.yellow('\nTip: Use https://faucet.solana.com/ if rate limited'));
+      }
+
+    } else if (token === 'USDC') {
+      // Circle's official USDC
+      const { spyk } = loadConfig();
+      const USDC_DEVNET_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
+
+      console.log(chalk.white('Getting devnet USDC (Circle Official)...\n'));
+
+      // Check current balance
+      let currentBalance = 0;
+      try {
+        const ata = await getAssociatedTokenAddress(USDC_DEVNET_MINT, spyk.walletPublicKey);
+        const account = await getAccount(spyk.rpcConnection, ata);
+        currentBalance = Number(account.amount) / 1e6;
+        console.log(chalk.cyan(`Current USDC balance: ${currentBalance.toFixed(2)} USDC\n`));
+      } catch {
+        console.log(chalk.gray('No USDC account yet.\n'));
+      }
+
+      console.log(chalk.yellow('Step 1: Get USDC from Circle Faucet'));
+      console.log(chalk.white('  https://faucet.circle.com/'));
+      console.log(chalk.gray('  • Select "Solana" → "Devnet"'));
+      console.log(chalk.gray('  • Limit: 20 USDC per 2 hours per address\n'));
+
+      console.log(chalk.white('Your wallet address (copy this):'));
+      console.log(chalk.bold.green(`  ${spyk.walletPublicKey.toBase58()}\n`));
+
+      console.log(chalk.yellow('💡 Need more than 20 USDC?'));
+      console.log(chalk.white('  Use multiple wallets to bypass rate limit:\n'));
+      console.log(chalk.gray('  1. Create temp wallets:'));
+      console.log(chalk.white('     solana-keygen new -o /tmp/temp1.json --no-bip39-passphrase'));
+      console.log(chalk.white('     solana-keygen new -o /tmp/temp2.json --no-bip39-passphrase\n'));
+      console.log(chalk.gray('  2. Get their addresses:'));
+      console.log(chalk.white('     solana address -k /tmp/temp1.json\n'));
+      console.log(chalk.gray('  3. Faucet 20 USDC to each at https://faucet.circle.com/\n'));
+      console.log(chalk.gray('  4. Transfer to your main wallet:'));
+      console.log(chalk.white(`     spl-token transfer ${USDC_DEVNET_MINT.toBase58()} 20 ${spyk.walletPublicKey.toBase58()} --owner /tmp/temp1.json --url devnet --allow-unfunded-recipient --fund-recipient\n`));
+
+      console.log(chalk.cyan('─────────────────────────────────────────────'));
+      console.log(chalk.white('USDC Devnet Mint: ') + chalk.gray(USDC_DEVNET_MINT.toBase58()));
+
+    } else {
+      console.log(chalk.red(`Unknown token: ${token}`));
+      console.log(chalk.yellow('Supported tokens: SOL, USDC'));
+    }
+  });
+
+// ============================================
+// Compliance Commands (Noir ZK Proofs)
+// ============================================
+
+const complianceCmd = program
+  .command('compliance')
+  .description('ZK compliance proofs using Noir circuits');
+
+// compliance check <address>
+complianceCmd
+  .command('check <address>')
+  .option('--mock', 'Use mock mode (no nargo/sunspot required)', false)
+  .option('-v, --verbose', 'Show detailed output', false)
+  .description('Check if an address is on the sanctions list')
+  .action(async (address: string, options: { mock: boolean; verbose: boolean }) => {
+    console.log(chalk.bold.cyan('\n[Compliance] SPYK ZK Compliance Check\n'));
+
+    // Validate address
+    let pubkey: PublicKey;
+    try {
+      pubkey = new PublicKey(address);
+    } catch {
+      console.error(chalk.red(`Invalid Solana address: ${address}`));
+      process.exit(1);
+    }
+
+    const spinner = ora('Initializing compliance prover...').start();
+
+    try {
+      // Create prover with mock flag
+      const prover = noir.createNoirProver({ useCLI: !options.mock });
+      await prover.initialize();
+
+      const mode = prover.getMode();
+      spinner.text = `Checking address (${mode} mode)...`;
+
+      if (options.verbose) {
+        const info = prover.getCircuitInfo();
+        console.log(chalk.gray(`\nCircuit: ${info.name} v${info.version}`));
+        console.log(chalk.gray(`Backend: ${info.backend}`));
+        console.log(chalk.gray(`Mode: ${info.mode}\n`));
+      }
+
+      // Perform compliance check
+      const result = await prover.proveCompliance(pubkey);
+
+      spinner.stop();
+
+      if (result.passed) {
+        console.log(chalk.bold.green('[PASSED] Address is NOT on sanctions list'));
+        console.log(chalk.white(`\nAddress:    ${pubkey.toBase58()}`));
+        console.log(chalk.white(`Checked at: ${new Date(result.timestamp).toISOString()}`));
+        console.log(chalk.white(`Confidence: ${(result.confidence * 100).toFixed(0)}%`));
+
+        if (result.noirProof) {
+          console.log(chalk.cyan(`\nProof generated (${result.noirProof.metadata.size} bytes)`));
+          console.log(chalk.gray('Use `spyk compliance prove` to get full proof data'));
+        }
+      } else {
+        console.log(chalk.bold.red('[FAILED] Address may be sanctioned or check failed'));
+        console.log(chalk.white(`\nAddress: ${pubkey.toBase58()}`));
+        console.log(chalk.yellow('This address cannot be used with SPYK Protocol.'));
+      }
+
+    } catch (error) {
+      spinner.fail(chalk.red('Compliance check failed'));
+      if (error instanceof Error) {
+        console.error(chalk.red(`Error: ${error.message}`));
+        if (options.verbose && error.stack) {
+          console.error(chalk.gray(error.stack));
+        }
+      }
+      process.exit(1);
+    }
+  });
+
+// compliance prove <address>
+complianceCmd
+  .command('prove <address>')
+  .option('--mock', 'Use mock mode (no nargo/sunspot required)', false)
+  .option('-o, --output <file>', 'Write proof to file (JSON)')
+  .option('-v, --verbose', 'Show detailed output', false)
+  .description('Generate a ZK proof that an address is not sanctioned')
+  .action(async (address: string, options: { mock: boolean; output?: string; verbose: boolean }) => {
+    console.log(chalk.bold.cyan('\n[Compliance] SPYK ZK Proof Generation\n'));
+
+    // Validate address
+    let pubkey: PublicKey;
+    try {
+      pubkey = new PublicKey(address);
+    } catch {
+      console.error(chalk.red(`Invalid Solana address: ${address}`));
+      process.exit(1);
+    }
+
+    const spinner = ora('Initializing Noir prover...').start();
+
+    try {
+      // Check toolchain status first
+      if (!options.mock) {
+        spinner.text = 'Checking Noir toolchain...';
+        const status = await noir.checkToolchain();
+
+        if (!status.ready) {
+          spinner.warn(chalk.yellow('Noir toolchain not fully installed'));
+          console.log(chalk.yellow('\nMissing components:'));
+          if (!status.nargo.installed) {
+            console.log(chalk.gray('  - nargo: Not found'));
+            console.log(chalk.gray('    Install: curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash'));
+          }
+          if (!status.sunspot.installed) {
+            console.log(chalk.gray('  - sunspot: Not found'));
+            console.log(chalk.gray('    Install: cargo install sunspot'));
+          }
+          console.log(chalk.yellow('\nFalling back to mock mode...\n'));
+        }
+      }
+
+      // Create prover
+      const prover = noir.createNoirProver({ useCLI: !options.mock, verbose: options.verbose });
+      await prover.initialize();
+
+      const mode = prover.getMode();
+      spinner.text = `Generating ZK proof (${mode} mode)...`;
+
+      if (options.verbose) {
+        const info = prover.getCircuitInfo();
+        console.log(chalk.gray(`\nCircuit: ${info.name} v${info.version}`));
+        console.log(chalk.gray(`Backend: ${info.backend}`));
+        console.log(chalk.gray(`Mode: ${info.mode}\n`));
+        spinner.start();
+      }
+
+      // Generate proof
+      const startTime = Date.now();
+      const result = await prover.proveCompliance(pubkey);
+      const elapsed = Date.now() - startTime;
+
+      spinner.stop();
+
+      if (!result.passed || !result.noirProof) {
+        console.log(chalk.bold.red('[FAILED] Could not generate proof'));
+        console.log(chalk.yellow('Address may be sanctioned or proof generation failed.'));
+        process.exit(1);
+      }
+
+      console.log(chalk.bold.green('[SUCCESS] ZK Proof Generated\n'));
+      console.log(chalk.white('--- Proof Details ---'));
+      console.log(chalk.white(`Address:     ${pubkey.toBase58()}`));
+      console.log(chalk.white(`Circuit:     ${result.noirProof.metadata.circuit}`));
+      console.log(chalk.white(`Noir Ver:    ${result.noirProof.metadata.noirVersion}`));
+      console.log(chalk.white(`Proof Size:  ${result.noirProof.metadata.size} bytes`));
+      console.log(chalk.white(`Generated:   ${new Date(result.noirProof.metadata.timestamp).toISOString()}`));
+      console.log(chalk.white(`Time:        ${elapsed}ms`));
+      console.log(chalk.white(`Mode:        ${mode}`));
+
+      // Output proof
+      const proofData = {
+        address: pubkey.toBase58(),
+        proof: Buffer.from(result.noirProof.proof).toString('base64'),
+        publicInputs: {
+          address: Buffer.from(result.noirProof.publicInputs.address).toString('hex'),
+          root: Buffer.from(result.noirProof.publicInputs.root).toString('hex'),
+        },
+        metadata: result.noirProof.metadata,
+        mode,
+      };
+
+      if (options.output) {
+        const fs = await import('fs');
+        fs.writeFileSync(options.output, JSON.stringify(proofData, null, 2));
+        console.log(chalk.cyan(`\nProof written to: ${options.output}`));
+      } else {
+        console.log(chalk.cyan('\n--- Proof (Base64) ---'));
+        console.log(chalk.gray(proofData.proof.slice(0, 80) + '...'));
+        console.log(chalk.gray(`(${proofData.proof.length} chars total)`));
+        console.log(chalk.yellow('\nTip: Use -o <file> to save full proof to a file'));
+      }
+
+      if (mode === 'mock') {
+        console.log(chalk.yellow('\n[Note] This is a mock proof for demo purposes.'));
+        console.log(chalk.yellow('Install nargo and sunspot for cryptographic proofs.'));
+      }
+
+    } catch (error) {
+      spinner.fail(chalk.red('Proof generation failed'));
+      if (error instanceof Error) {
+        console.error(chalk.red(`Error: ${error.message}`));
+        if (options.verbose && error.stack) {
+          console.error(chalk.gray(error.stack));
+        }
+      }
+      process.exit(1);
+    }
+  });
+
+// compliance verify <proof>
+complianceCmd
+  .command('verify <proof>')
+  .option('--mock', 'Use mock verifier (no on-chain transaction)', false)
+  .option('-v, --verbose', 'Show detailed output', false)
+  .description('Verify a ZK proof on-chain (or locally with --mock)')
+  .action(async (proofInput: string, options: { mock: boolean; verbose: boolean }) => {
+    console.log(chalk.bold.cyan('\n[Compliance] SPYK ZK Proof Verification\n'));
+
+    const spinner = ora('Loading proof...').start();
+
+    try {
+      // Load proof from file or parse as base64
+      let proofData: {
+        address: string;
+        proof: string;
+        publicInputs: { address: string; root: string };
+        metadata: { circuit: string; noirVersion: string; timestamp: number; size: number };
+        mode?: string;
+      };
+
+      const fs = await import('fs');
+      if (fs.existsSync(proofInput)) {
+        const content = fs.readFileSync(proofInput, 'utf-8');
+        proofData = JSON.parse(content);
+        spinner.text = `Loaded proof from ${proofInput}`;
+      } else {
+        // Try to parse as inline JSON
+        try {
+          proofData = JSON.parse(proofInput);
+        } catch {
+          console.error(chalk.red('Invalid proof input. Provide a file path or JSON string.'));
+          spinner.fail();
+          process.exit(1);
+        }
+      }
+
+      // Convert to NoirProof format
+      const noirProof: noir.NoirProof = {
+        proof: Uint8Array.from(Buffer.from(proofData.proof, 'base64')),
+        publicInputs: {
+          address: Uint8Array.from(Buffer.from(proofData.publicInputs.address, 'hex')),
+          root: Uint8Array.from(Buffer.from(proofData.publicInputs.root, 'hex')),
+        },
+        metadata: proofData.metadata,
+      };
+
+      if (options.verbose) {
+        console.log(chalk.gray('\nProof loaded:'));
+        console.log(chalk.gray(`  Address: ${proofData.address}`));
+        console.log(chalk.gray(`  Circuit: ${noirProof.metadata.circuit}`));
+        console.log(chalk.gray(`  Size: ${noirProof.metadata.size} bytes\n`));
+      }
+
+      if (options.mock) {
+        // Mock verification (local structural validation)
+        spinner.text = 'Verifying proof locally (mock mode)...';
+
+        const mockVerifier = noir.createMockNoirVerifier();
+        const result = await mockVerifier.verifyOnChain(noirProof);
+
+        spinner.stop();
+
+        if (result.verified) {
+          console.log(chalk.bold.green('[VERIFIED] Proof is structurally valid\n'));
+          console.log(chalk.white('--- Verification Result ---'));
+          console.log(chalk.white(`Address:   ${proofData.address}`));
+          console.log(chalk.white(`Verified:  ${new Date(result.timestamp).toISOString()}`));
+          console.log(chalk.white(`Signature: ${result.signature}`));
+          console.log(chalk.yellow('\n[Note] This was a local mock verification.'));
+          console.log(chalk.yellow('Remove --mock flag for on-chain verification.'));
+        } else {
+          console.log(chalk.bold.red('[INVALID] Proof failed structural validation\n'));
+          console.log(chalk.white(`Error: ${result.error}`));
+        }
+
+      } else {
+        // On-chain verification
+        spinner.text = 'Connecting to Solana...';
+
+        const { spyk, network } = loadConfig();
+
+        spinner.text = `Verifying proof on-chain (${network})...`;
+
+        // Create auto verifier (checks if program is deployed)
+        const wallet = (spyk.privacyCash as any).config.wallet;
+        const verifier = await noir.createAutoVerifier(spyk.rpcConnection, wallet, {
+          network: network === 'mainnet' ? 'mainnet' : 'devnet',
+        });
+
+        // Determine if we're using mock or real verifier
+        const isMockVerifier = verifier instanceof noir.MockNoirVerifier;
+        if (isMockVerifier) {
+          spinner.text = 'Verifier program not deployed, using local verification...';
+        }
+
+        const result = await verifier.verifyOnChain(noirProof);
+
+        spinner.stop();
+
+        if (result.verified) {
+          console.log(chalk.bold.green('[VERIFIED] Proof is valid!\n'));
+          console.log(chalk.white('--- Verification Result ---'));
+          console.log(chalk.white(`Address:   ${proofData.address}`));
+          console.log(chalk.white(`Verified:  ${new Date(result.timestamp).toISOString()}`));
+          if (result.signature) {
+            console.log(chalk.white(`Signature: ${result.signature}`));
+            if (!isMockVerifier) {
+              console.log(chalk.cyan(`\nView on Solscan: ${getSolscanUrl(result.signature, network)}`));
+            }
+          }
+          if (isMockVerifier) {
+            console.log(chalk.yellow('\n[Note] Verified locally (verifier program not deployed).'));
+          }
+        } else {
+          console.log(chalk.bold.red('[INVALID] Proof verification failed\n'));
+          console.log(chalk.white(`Error: ${result.error || 'Unknown error'}`));
+        }
+      }
+
+    } catch (error) {
+      spinner.fail(chalk.red('Verification failed'));
+      if (error instanceof Error) {
+        console.error(chalk.red(`Error: ${error.message}`));
+        if (options.verbose && error.stack) {
+          console.error(chalk.gray(error.stack));
+        }
+      }
+      process.exit(1);
+    }
+  });
+
 // Interactive command
 program
   .command('interactive')
@@ -649,6 +1082,335 @@ program
       console.log(chalk.cyan(`Transaction: ${getSolscanUrl(result.signature, network)}`));
     } catch (error) {
       spinner.fail(chalk.red('Operation failed'));
+      handleError(error);
+    }
+  });
+
+// ============================================
+// Swap Commands (Arcium - Private Swaps)
+// ============================================
+
+const swapCmd = program.command('swap').description('Private swap operations (Arcium MXE)');
+
+swapCmd
+  .command('quote <amount> <from> <to>')
+  .option('--slippage <bps>', 'Slippage tolerance in basis points', '50')
+  .description('Get a quote for a private swap')
+  .action(async (amount: string, from: string, to: string, options: { slippage: string }) => {
+    const fromToken = from.toUpperCase();
+    const toToken = to.toUpperCase();
+    const amountNum = parseFloat(amount);
+    const slippageBps = parseInt(options.slippage, 10);
+
+    console.log(chalk.bold.cyan('\n[Arcium] Private Swap Quote\n'));
+    console.log(chalk.yellow('Note: Arcium MXE is not yet deployed on devnet.'));
+    console.log(chalk.yellow('Showing simulated quote with mock pricing.\n'));
+
+    const spinner = ora('Fetching swap quote...').start();
+
+    try {
+      // Simulate quote calculation
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Mock price ratios (simplified)
+      const mockPrices: Record<string, number> = {
+        SOL: 100, // $100/SOL
+        USDC: 1,
+        USDT: 1,
+        BONK: 0.00002,
+      };
+
+      const fromPrice = mockPrices[fromToken] || 1;
+      const toPrice = mockPrices[toToken] || 1;
+      const inputValue = amountNum * fromPrice;
+      const expectedOutput = inputValue / toPrice;
+      const feeBps = 30; // 0.3% fee
+      const feeAmount = (expectedOutput * feeBps) / 10000;
+      const outputAfterFee = expectedOutput - feeAmount;
+      const minOutput = outputAfterFee * (1 - slippageBps / 10000);
+      const priceImpact = Math.min(10, amountNum * 0.1); // Simplified impact
+
+      spinner.succeed(chalk.green('Quote retrieved'));
+
+      console.log(chalk.cyan('\n--- Swap Quote ---'));
+      console.log(chalk.white(`Input:           ${amountNum} ${fromToken}`));
+      console.log(chalk.white(`Expected Output: ${outputAfterFee.toFixed(6)} ${toToken}`));
+      console.log(chalk.white(`Minimum Output:  ${minOutput.toFixed(6)} ${toToken} (${slippageBps/100}% slippage)`));
+      console.log(chalk.white(`Fee:             ${feeAmount.toFixed(6)} ${toToken} (0.30%)`));
+      console.log(chalk.white(`Price Impact:    ${priceImpact.toFixed(2)} bps`));
+      console.log(chalk.white(`Exchange Rate:   1 ${fromToken} = ${(fromPrice/toPrice).toFixed(6)} ${toToken}`));
+
+      console.log(chalk.cyan('\n--- Privacy Features ---'));
+      console.log(chalk.white('- Order size: Encrypted (hidden from observers)'));
+      console.log(chalk.white('- MEV protection: Enabled (confidential execution)'));
+      console.log(chalk.white('- Execution: Via Arcium MXE (Multi-party eXecution)\n'));
+
+    } catch (error) {
+      spinner.fail(chalk.red('Quote failed'));
+      handleError(error);
+    }
+  });
+
+swapCmd
+  .command('execute <amount> <from> <to>')
+  .option('--slippage <bps>', 'Slippage tolerance in basis points', '50')
+  .option('--mock', 'Use mock mode (always enabled for devnet)', true)
+  .description('Execute a private swap')
+  .action(async (amount: string, from: string, to: string, options: { slippage: string; mock: boolean }) => {
+    const fromToken = from.toUpperCase();
+    const toToken = to.toUpperCase();
+    const amountNum = parseFloat(amount);
+
+    console.log(chalk.bold.cyan('\n[Arcium] Private Swap Execution\n'));
+
+    // Always use mock mode on devnet until Arcium MXE is deployed
+    console.log(chalk.bgYellow.black(' MOCK MODE ') + chalk.yellow(' Arcium MXE not available on devnet\n'));
+
+    console.log(chalk.yellow('--- How Private Swaps Work ---'));
+    console.log(chalk.white('1. Your order size is encrypted before submission'));
+    console.log(chalk.white('2. MXE nodes execute the swap with hidden amounts'));
+    console.log(chalk.white('3. No one can see your order size or front-run you'));
+    console.log(chalk.white('4. Result is returned encrypted to your wallet\n'));
+
+    const spinner = ora('Executing private swap...').start();
+
+    try {
+      // Step 1: Encrypt order
+      spinner.text = 'Encrypting order parameters...';
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Step 2: Submit to MXE
+      spinner.text = 'Submitting to Arcium MXE...';
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Step 3: Wait for execution
+      spinner.text = 'Waiting for confidential execution...';
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Step 4: Get result
+      spinner.text = 'Decrypting swap result...';
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Mock output calculation
+      const mockPrices: Record<string, number> = {
+        SOL: 100,
+        USDC: 1,
+        USDT: 1,
+        BONK: 0.00002,
+      };
+
+      const fromPrice = mockPrices[fromToken] || 1;
+      const toPrice = mockPrices[toToken] || 1;
+      const inputValue = amountNum * fromPrice;
+      const expectedOutput = inputValue / toPrice;
+      const outputAfterFee = expectedOutput * 0.997; // 0.3% fee
+
+      const mockSig = 'ArciumMock' + Math.random().toString(36).substring(2, 15);
+      spinner.succeed(chalk.green('Private swap executed!'));
+
+      console.log(chalk.bold.green('\n[SUCCESS] Swap Complete!\n'));
+      console.log(chalk.cyan('--- Swap Result ---'));
+      console.log(chalk.white(`Input:        ${amountNum} ${fromToken}`));
+      console.log(chalk.white(`Output:       ${outputAfterFee.toFixed(6)} ${toToken}`));
+      console.log(chalk.white(`Computation:  ${mockSig}`));
+
+      console.log(chalk.cyan('\n--- Privacy Summary ---'));
+      console.log(chalk.white(`Order size:   ${chalk.green('HIDDEN')} (encrypted on-chain)`));
+      console.log(chalk.white(`Front-running: ${chalk.green('PROTECTED')} (MEV-resistant)`));
+      console.log(chalk.white(`Execution:    Arcium MXE (confidential)`));
+      console.log(chalk.gray('\n(Mock mode - simulated execution)\n'));
+
+    } catch (error) {
+      spinner.fail(chalk.red('Swap failed'));
+      handleError(error);
+    }
+  });
+
+// ============================================
+// Lend Commands (Arcium - Private Lending)
+// ============================================
+
+const lendCmd = program.command('lend').description('Private lending operations (Arcium MXE)');
+
+lendCmd
+  .command('deposit <amount> <token>')
+  .option('--no-collateral', 'Deposit without enabling as collateral')
+  .option('--mock', 'Use mock mode (always enabled for devnet)', true)
+  .description('Deposit tokens to private lending pool')
+  .action(async (amount: string, token: string, options: { collateral: boolean; mock: boolean }) => {
+    const tokenSymbol = token.toUpperCase();
+    const amountNum = parseFloat(amount);
+    const enableCollateral = options.collateral !== false; // Default true
+
+    console.log(chalk.bold.cyan('\n[Arcium] Private Lending Deposit\n'));
+
+    // Always use mock mode on devnet until Arcium MXE is deployed
+    console.log(chalk.bgYellow.black(' MOCK MODE ') + chalk.yellow(' Arcium MXE not available on devnet\n'));
+
+    console.log(chalk.yellow('--- How Private Lending Works ---'));
+    console.log(chalk.white('1. Your deposit amount is encrypted'));
+    console.log(chalk.white('2. Collateral position size remains hidden'));
+    console.log(chalk.white('3. Earn yield without revealing your position'));
+    console.log(chalk.white('4. Health factor computed confidentially\n'));
+
+    const spinner = ora('Processing deposit...').start();
+
+    try {
+      // Step 1: Encrypt amount
+      spinner.text = 'Encrypting deposit amount...';
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 2: Build encrypted deposit
+      spinner.text = 'Building confidential deposit transaction...';
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Step 3: Submit to MXE
+      spinner.text = 'Submitting to Arcium lending market...';
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Step 4: Confirm
+      spinner.text = 'Confirming deposit...';
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Mock APY
+      const mockAPY: Record<string, number> = {
+        SOL: 5.2,
+        USDC: 8.5,
+        USDT: 7.8,
+      };
+
+      const apy = mockAPY[tokenSymbol] || 5.0;
+      const mockSig = 'ArciumLend' + Math.random().toString(36).substring(2, 15);
+
+      spinner.succeed(chalk.green('Deposit successful!'));
+
+      console.log(chalk.bold.green('\n[SUCCESS] Deposit Complete!\n'));
+      console.log(chalk.cyan('--- Deposit Details ---'));
+      console.log(chalk.white(`Amount:          ${amountNum} ${tokenSymbol}`));
+      console.log(chalk.white(`Collateral:      ${enableCollateral ? 'Enabled' : 'Disabled'}`));
+      console.log(chalk.white(`Supply APY:      ${apy.toFixed(2)}%`));
+      console.log(chalk.white(`Computation:     ${mockSig}`));
+
+      console.log(chalk.cyan('\n--- Privacy Features ---'));
+      console.log(chalk.white(`Position size:   ${chalk.green('HIDDEN')} (encrypted on-chain)`));
+      console.log(chalk.white(`Yield accrual:   Private (computed in MXE)`));
+      console.log(chalk.white(`Collateral:      ${enableCollateral ? 'Enabled (hidden ratio)' : 'Disabled'}`));
+
+      if (enableCollateral) {
+        console.log(chalk.cyan('\n--- Borrowing Power ---'));
+        console.log(chalk.white(`Collateral factor: 80%`));
+        console.log(chalk.white(`Max borrow value:  ${(amountNum * 0.8).toFixed(2)} ${tokenSymbol} equivalent`));
+        console.log(chalk.gray('(Actual borrow capacity computed privately)'));
+      }
+
+      console.log(chalk.gray('\n(Mock mode - simulated execution)\n'));
+
+    } catch (error) {
+      spinner.fail(chalk.red('Deposit failed'));
+      handleError(error);
+    }
+  });
+
+lendCmd
+  .command('withdraw <amount> <token>')
+  .option('--mock', 'Use mock mode (always enabled for devnet)', true)
+  .description('Withdraw tokens from private lending pool')
+  .action(async (amount: string, token: string, options: { mock: boolean }) => {
+    const tokenSymbol = token.toUpperCase();
+    const amountNum = parseFloat(amount);
+
+    console.log(chalk.bold.cyan('\n[Arcium] Private Lending Withdrawal\n'));
+
+    // Always use mock mode on devnet until Arcium MXE is deployed
+    console.log(chalk.bgYellow.black(' MOCK MODE ') + chalk.yellow(' Arcium MXE not available on devnet\n'));
+
+    console.log(chalk.yellow('--- Withdrawal Process ---'));
+    console.log(chalk.white('1. Health factor check (encrypted computation)'));
+    console.log(chalk.white('2. Verify sufficient collateral remains'));
+    console.log(chalk.white('3. Execute withdrawal with hidden amounts'));
+    console.log(chalk.white('4. Update position privately\n'));
+
+    const spinner = ora('Processing withdrawal...').start();
+
+    try {
+      // Step 1: Check health factor
+      spinner.text = 'Computing health factor (encrypted)...';
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Step 2: Verify
+      spinner.text = 'Verifying withdrawal safety...';
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 3: Execute
+      spinner.text = 'Executing encrypted withdrawal...';
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Step 4: Confirm
+      spinner.text = 'Confirming on-chain...';
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      const mockSig = 'ArciumWithdraw' + Math.random().toString(36).substring(2, 15);
+
+      spinner.succeed(chalk.green('Withdrawal successful!'));
+
+      console.log(chalk.bold.green('\n[SUCCESS] Withdrawal Complete!\n'));
+      console.log(chalk.cyan('--- Withdrawal Details ---'));
+      console.log(chalk.white(`Amount:          ${amountNum} ${tokenSymbol}`));
+      console.log(chalk.white(`Health Factor:   Safe (> 1.0)`));
+      console.log(chalk.white(`Computation:     ${mockSig}`));
+
+      console.log(chalk.cyan('\n--- Privacy Summary ---'));
+      console.log(chalk.white(`Withdrawal size: ${chalk.green('HIDDEN')} (encrypted on-chain)`));
+      console.log(chalk.white(`Remaining pos:   ${chalk.green('HIDDEN')} (only you can view)`));
+      console.log(chalk.white(`Health status:   Computed privately`));
+      console.log(chalk.gray('\n(Mock mode - simulated execution)\n'));
+
+    } catch (error) {
+      spinner.fail(chalk.red('Withdrawal failed'));
+      handleError(error);
+    }
+  });
+
+lendCmd
+  .command('position')
+  .option('--mock', 'Use mock mode (always enabled for devnet)', true)
+  .description('View your private lending position')
+  .action(async () => {
+    console.log(chalk.bold.cyan('\n[Arcium] Private Lending Position\n'));
+
+    console.log(chalk.bgYellow.black(' MOCK MODE ') + chalk.yellow(' Arcium MXE not available on devnet\n'));
+
+    const spinner = ora('Fetching encrypted position...').start();
+
+    try {
+      // Simulate decryption
+      spinner.text = 'Decrypting position data...';
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      spinner.succeed(chalk.green('Position retrieved'));
+
+      // Mock position data
+      console.log(chalk.cyan('\n--- Your Private Position ---'));
+      console.log(chalk.white('Deposits:'));
+      console.log(chalk.white('  USDC:  1,000.00 (Supply APY: 8.5%)'));
+      console.log(chalk.white('  SOL:   5.00 (Supply APY: 5.2%)'));
+
+      console.log(chalk.white('\nBorrows:'));
+      console.log(chalk.white('  (No active borrows)'));
+
+      console.log(chalk.cyan('\n--- Health Metrics ---'));
+      console.log(chalk.white('Total Collateral: $1,500.00'));
+      console.log(chalk.white('Total Borrowed:   $0.00'));
+      console.log(chalk.white('Health Factor:    ') + chalk.green('Infinity (no borrows)'));
+      console.log(chalk.white('Available to Borrow: $1,200.00 (80% LTV)'));
+
+      console.log(chalk.cyan('\n--- Privacy Status ---'));
+      console.log(chalk.white(`On-chain visibility: ${chalk.green('ENCRYPTED')}`));
+      console.log(chalk.white('Only you can decrypt and view position details'));
+      console.log(chalk.gray('\n(Mock data - connect wallet to view real position)\n'));
+
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to fetch position'));
       handleError(error);
     }
   });
