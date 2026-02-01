@@ -18,7 +18,7 @@ Structure your presentation + demo in one video:
 | Time | Content | What to Show |
 |------|---------|--------------|
 | 0:00-0:30 | Problem | "Every Solana TX is public. AI agents expose wallets." |
-| 0:30-1:30 | x402 Demo | Run `test-full-devnet-flow.ts`, show real Solscan link |
+| 0:30-1:30 | x402 Demo | Run `npx tsx src/cli.ts pay <url> --devnet`, show real Solscan link |
 | 1:30-2:15 | Noir Proofs | Real 388-byte Groth16 proof generation |
 | 2:15-3:00 | Sponsors | Table of 7 integrations |
 | 3:00-3:30 | Code | 3-line SDK initialization |
@@ -36,7 +36,7 @@ SPYK Protocol is a unified TypeScript SDK providing privacy primitives for AI ag
 **1. x402 Private AI Payments** (Flagship)
 - Problem: AI agents paying APIs expose wallet addresses on-chain
 - Solution: Ephemeral keypairs funded from ZK pools
-- Flow: Shield funds → Generate ephemeral → Fund from pool → Pay API
+- Flow: Shield funds -> Generate ephemeral -> Fund from pool -> Pay API
 - Result: Zero on-chain link between agent wallet and payment
 - **Status: REAL devnet transactions with Solscan links**
 
@@ -92,36 +92,22 @@ SPYK Protocol is a unified TypeScript SDK providing privacy primitives for AI ag
 
 ## Demo Commands (for video)
 
-### Primary Demo Command (Recommended)
+### Primary Demo Commands (from spyk-demo/)
 ```bash
-# Navigate to SDK
-cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
+# Navigate to CLI
+cd ~/Documents/Web3/Spyk\ Protocol/spyk-demo
 
-# Full integration test (shows ALL 5 components)
-npx tsx test-full-devnet-flow.ts
+# Check balance
+npx tsx src/cli.ts balance
 
-# Expected output: ALL 5 TESTS PASSED!
-# - ShadowWire: Account check
-# - x402: Real devnet TX with Solscan link
-# - Noir: 388-byte proof via CLI
-# - Arcium: MXE client init
-# - PrivacyCash: Balance + shielding
-```
+# x402 Private Payment (REAL devnet TX with Solscan link)
+npx tsx src/cli.ts pay https://api.claude.ai/v1/messages --devnet
 
-### Noir Proof Demo (Standalone)
-```bash
-# Full example with toolchain check
-npx tsx examples/noir-cli-proofs.ts
+# ZK Compliance Proof (REAL Noir proof)
+npx tsx src/cli.ts compliance prove $(solana address)
 
-# Quick inline proof
-npx tsx -e "
-import * as noir from './src/noir';
-import { Keypair } from '@solana/web3.js';
-const prover = noir.createNoirProver({ useCLI: true, verbose: true });
-await prover.initialize();
-const result = await prover.proveCompliance(Keypair.generate().publicKey);
-console.log('Passed:', result.passed, 'Proof:', result.noirProof?.proof.length, 'bytes');
-"
+# Shield tokens
+npx tsx src/cli.ts deposit 0.5 --token SOL
 ```
 
 ### Pre-Recording Checklist
@@ -133,8 +119,9 @@ solana balance --url devnet
 solana airdrop 2 --url devnet
 # Or use: https://faucet.solana.com/
 
-# 3. Run full test to verify everything works
-npx tsx test-full-devnet-flow.ts
+# 3. Run test commands to verify everything works
+npx tsx src/cli.ts balance
+npx tsx src/cli.ts pay https://httpbin.org/post --devnet
 ```
 
 ---
@@ -143,20 +130,21 @@ npx tsx test-full-devnet-flow.ts
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| **x402 Payments** | ✅ REAL | Devnet TXs, Solscan links |
-| **Noir ZK Proofs** | ✅ REAL | Groth16 via nargo+sunspot |
-| **ShadowWire** | ✅ REAL | Account checks on devnet |
-| **Arcium MXE** | ✅ REAL | Client initializes |
-| **Privacy Cash** | ⚠️ Simulation | No devnet relayer |
+| **x402 Payments** | REAL | Devnet TXs, Solscan links |
+| **Noir ZK Proofs** | REAL | Groth16 via nargo+sunspot |
+| **ShadowWire** | REAL | Account checks on devnet |
+| **Arcium MXE** | REAL | Client initializes |
+| **Privacy Cash** | Simulation | No devnet relayer |
 
 ---
 
 ## Pre-Recording Checklist
 
 ```bash
-# 1. Verify everything works
-cd spyk-sdk && npx tsx test-full-devnet-flow.ts
-# Expected: ALL 5 TESTS PASSED!
+# 1. Verify CLI commands work
+cd spyk-demo
+npx tsx src/cli.ts balance
+npx tsx src/cli.ts pay https://httpbin.org/post --devnet
 
 # 2. Have ~2 SOL for demo
 solana balance --url devnet
@@ -166,13 +154,11 @@ solana balance --url devnet
 
 ---
 
----
-
 ## Submission Steps
 
 1. **Record Video** (4 mins max)
    - Follow VIDEO_RECORDING_GUIDE.md
-   - Run `npx tsx test-full-devnet-flow.ts` as primary demo
+   - Run `npx tsx src/cli.ts pay <url> --devnet` as primary demo
    - Show real Solscan links
 
 2. **Upload Video**
@@ -195,7 +181,7 @@ solana balance --url devnet
 ### SOL (Default)
 ```bash
 # Used in primary demo
-npx tsx test-full-devnet-flow.ts
+npx tsx src/cli.ts pay https://api.example.com --devnet
 
 # SOL airdrop
 solana airdrop 2 --url devnet
@@ -208,8 +194,7 @@ open https://faucet.circle.com/
 # Select: Solana -> Devnet -> 20 USDC
 
 # SDK supports USDC:
-# await spyk.deposit('USDC', 100);
-# await spyk.getPrivateBalance('USDC');
+npx tsx src/cli.ts deposit 10 --token USDC
 ```
 
 ---

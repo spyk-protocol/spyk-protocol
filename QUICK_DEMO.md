@@ -185,24 +185,24 @@ node dist/cli.mjs transfer <address> 50 --token RADR --mock
 
 ### Noir/Aztec ($10k) - ZK Proofs on Solana
 ```bash
-# Real proof generation (requires nargo + sunspot installed)
-cd spyk-sdk
-npx tsx test-real-devnet.ts
+# Real proof generation (from spyk-demo/)
+cd spyk-demo
+npx tsx src/cli.ts compliance prove $(solana address)
 
 # Shows:
-# - nargo 1.0.0-beta.18 ✓
-# - sunspot ✓
-# - Proof generated in 0.7s
-# - Verifier: 548u4SFWZMaRWZQqdyAgm66z7VRYtNHHF2sr7JTBXbwN
+# - Circuit: spyk_compliance
+# - Noir Ver: 1.0.0-beta.18
+# - Proof Size: 388 bytes
+# - Mode: cli
 ```
 
 ### Arcium ($10k) - Encrypted DeFi
 ```bash
-# Run integration test
-cd spyk-sdk
-npx tsx test-full-devnet-flow.ts
+# Private swap quote (from spyk-demo/)
+cd spyk-demo
+npx tsx src/cli.ts swap quote 100 USDC SOL
 
-# Shows: Arcium MXE client with swap/lending/state modules
+# Shows: Arcium MXE client with encrypted order parameters
 ```
 
 ### x402 Protocol - Private AI Payments

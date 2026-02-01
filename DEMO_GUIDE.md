@@ -7,13 +7,17 @@
 ## Quick Start (Recommended for Demo)
 
 ```bash
-# Navigate to SDK directory
-cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
+# Navigate to demo CLI directory
+cd ~/Documents/Web3/Spyk\ Protocol/spyk-demo
 
-# Run full integration test (ALL 5 components)
-npx tsx test-full-devnet-flow.ts
+# Check balance
+npx tsx src/cli.ts balance
 
-# Expected output: ALL 5 TESTS PASSED!
+# x402 Private Payment (REAL devnet TX)
+npx tsx src/cli.ts pay https://api.claude.ai/v1/messages --devnet
+
+# ZK Compliance Proof
+npx tsx src/cli.ts compliance prove $(solana address)
 ```
 
 ---
@@ -65,7 +69,7 @@ pnpm build
 
 ```bash
 # CLI airdrop (up to 2 SOL)
-pnpm dev faucet --token SOL --amount 2
+npx tsx src/cli.ts faucet --token SOL --amount 2
 
 # Alternative: Web faucet (up to 5 SOL)
 # https://faucet.solana.com/
@@ -83,7 +87,7 @@ Received 2 SOL!
 
 ```bash
 # Shows faucet instructions and your wallet address
-pnpm dev faucet --token USDC
+npx tsx src/cli.ts faucet --token USDC
 ```
 
 **Steps:**
@@ -102,10 +106,10 @@ Deposit and withdraw SOL/USDC via zero-knowledge pool.
 
 ```bash
 # Shield 0.1 SOL into private pool
-pnpm dev deposit 0.1
+npx tsx src/cli.ts deposit 0.1
 
 # With mock mode (no real transaction)
-pnpm dev deposit 0.5 --mock
+npx tsx src/cli.ts deposit 0.5 --mock
 ```
 
 **Expected output (real devnet):**
@@ -115,29 +119,20 @@ Successfully shielded 0.1 SOL!
 Transaction: https://solscan.io/tx/...?cluster=devnet
 ```
 
-**Note:** MockPrivacyCash sends real devnet transactions with memo `SPYK-MOCK-PC:SHIELD:SOL:0.1`
-
 ### Withdraw (Unshield)
 
 ```bash
 # Unshield 0.05 SOL from private pool
-pnpm dev withdraw 0.05
+npx tsx src/cli.ts withdraw 0.05
 
 # With destination address
-pnpm dev withdraw 0.05 -d <recipient_address>
-```
-
-**Expected output:**
-```
-Unshielding 0.05 SOL...
-Successfully unshielded 0.05 SOL!
-Transaction: https://solscan.io/tx/...?cluster=devnet
+npx tsx src/cli.ts withdraw 0.05 -d <recipient_address>
 ```
 
 ### Check Balance
 
 ```bash
-pnpm dev balance
+npx tsx src/cli.ts balance
 ```
 
 ---
@@ -150,7 +145,7 @@ Pay APIs privately using ephemeral keypairs. Your wallet is never linked on-chai
 
 ```bash
 # Execute real devnet transaction
-pnpm dev pay https://api.example.com/premium --devnet -a 0.001
+npx tsx src/cli.ts pay https://api.example.com/premium --devnet -a 0.001
 ```
 
 **Expected output:**
@@ -184,21 +179,21 @@ Payment sent on devnet!
 --- Transaction Details ---
 Ephemeral Address: 91Pa4RWEyJN1RpHTgQ8XAs9cnqiCrUQqgVc7Rte8Q9qb
 Funding Tx:        <signature>
-Payment Tx:        3eMznBTeRiR7cMbisGgySuYRo5eSRMxygSn9hsbcbnQr1B1KLzLTi6UPcc1c5gNG89u6RsdgfkaSEegTbu7m7kVs
+Payment Tx:        3eMznBTeRiR7cMbisGgySuYRo5eSRMxygSn9hsbcbnQr...
 
-View on Solscan:   https://solscan.io/tx/3eMznBTeRiR7cMbisGgySuYRo5eSRMxygSn9hsbcbnQr1B1KLzLTi6UPcc1c5gNG89u6RsdgfkaSEegTbu7m7kVs?cluster=devnet
+View on Solscan:   https://solscan.io/tx/...?cluster=devnet
 ```
 
 ### Mock Mode (Demo without SOL)
 
 ```bash
-pnpm dev pay https://api.claude.ai/v1/messages --mock
+npx tsx src/cli.ts pay https://api.claude.ai/v1/messages --mock
 ```
 
 ### With Custom Recipient
 
 ```bash
-pnpm dev pay https://api.example.com --devnet -a 0.001 -r <recipient_address>
+npx tsx src/cli.ts pay https://api.example.com --devnet -a 0.001 -r <recipient_address>
 ```
 
 ---
@@ -211,7 +206,7 @@ Generate and verify zero-knowledge proofs that an address is not sanctioned.
 
 ```bash
 # Check if address is compliant (mock mode - no nargo required)
-pnpm dev compliance check <solana_address> --mock
+npx tsx src/cli.ts compliance check <solana_address> --mock
 ```
 
 **Expected output:**
@@ -233,29 +228,32 @@ Use `spyk compliance prove` to get full proof data
 ### Generate Proof
 
 ```bash
-# Generate ZK proof (mock mode)
-pnpm dev compliance prove <solana_address> --mock
+# Generate ZK proof (real mode with nargo)
+npx tsx src/cli.ts compliance prove <solana_address>
+
+# Mock mode (no nargo required)
+npx tsx src/cli.ts compliance prove <solana_address> --mock
 
 # Save proof to file
-pnpm dev compliance prove <solana_address> --mock -o proof.json
+npx tsx src/cli.ts compliance prove <solana_address> -o proof.json
 ```
 
 **Expected output:**
 ```
 [Compliance] SPYK ZK Proof Generation
 
-Generating ZK proof (mock mode)...
+Generating ZK proof (cli mode)...
 
 [SUCCESS] ZK Proof Generated
 
 --- Proof Details ---
 Address:     <your_address>
 Circuit:     spyk_compliance
-Noir Ver:    1.0.0
+Noir Ver:    1.0.0-beta.18
 Proof Size:  388 bytes
 Generated:   2026-02-01T12:00:00.000Z
-Time:        45ms
-Mode:        mock
+Time:        6000ms
+Mode:        cli
 
 --- Proof (Base64) ---
 UHJvb2Y6IG1vY2tfcHJvb2ZfZm9yX2FkZHJlc3NfMTIzNDU2Nzg5MGFiY2RlZi4uLg==...
@@ -268,31 +266,11 @@ Tip: Use -o <file> to save full proof to a file
 
 ```bash
 # Verify proof locally (mock mode)
-pnpm dev compliance verify proof.json --mock
+npx tsx src/cli.ts compliance verify proof.json --mock
 
 # Verbose output
-pnpm dev compliance verify proof.json --mock -v
+npx tsx src/cli.ts compliance verify proof.json --mock -v
 ```
-
-**Expected output:**
-```
-[Compliance] SPYK ZK Proof Verification
-
-Loading proof...
-Verifying proof locally (mock mode)...
-
-[VERIFIED] Proof is structurally valid
-
---- Verification Result ---
-Address:   <your_address>
-Verified:  2026-02-01T12:00:00.000Z
-Signature: mock_verification_...
-
-[Note] This was a local mock verification.
-Remove --mock flag for on-chain verification.
-```
-
-**Note:** Real ZK proofs require `nargo` and `sunspot` installed. Mock mode generates simulated proofs for demo purposes.
 
 ---
 
@@ -303,92 +281,27 @@ Encrypted swaps and lending with hidden amounts. MXE (Multi-party eXecution Envi
 ### Get Swap Quote
 
 ```bash
-pnpm dev swap quote 100 USDC SOL
-```
-
-**Expected output:**
-```
-[Arcium] Private Swap Quote
-
-Note: Arcium MXE is not yet deployed on devnet.
-Showing simulated quote with mock pricing.
-
-Fetching swap quote...
-
---- Swap Quote ---
-Input:           100 USDC
-Expected Output: 1.000000 SOL
-Minimum Output:  0.995000 SOL (0.5% slippage)
-Fee:             0.003000 SOL (0.30%)
-Price Impact:    10.00 bps
-Exchange Rate:   1 USDC = 0.010000 SOL
-
---- Privacy Features ---
-- Order size: Encrypted (hidden from observers)
-- MEV protection: Enabled (confidential execution)
-- Execution: Via Arcium MXE (Multi-party eXecution)
+npx tsx src/cli.ts swap quote 100 USDC SOL
 ```
 
 ### Execute Swap (Mock)
 
 ```bash
-pnpm dev swap execute 100 USDC SOL --mock
-```
-
-**Expected output:**
-```
-[Arcium] Private Swap Execution
-
- MOCK MODE  Arcium MXE not available on devnet
-
---- How Private Swaps Work ---
-1. Your order size is encrypted before submission
-2. MXE nodes execute the swap with hidden amounts
-3. No one can see your order size or front-run you
-4. Result is returned encrypted to your wallet
-
-Executing private swap...
-
-[SUCCESS] Swap Complete!
-
---- Swap Result ---
-Input:        100 USDC
-Output:       0.997000 SOL
-Computation:  ArciumMock...
-
---- Privacy Summary ---
-Order size:    HIDDEN (encrypted on-chain)
-Front-running: PROTECTED (MEV-resistant)
-Execution:    Arcium MXE (confidential)
-
-(Mock mode - simulated execution)
+npx tsx src/cli.ts swap execute 100 USDC SOL --mock
 ```
 
 ### Private Lending
 
 ```bash
 # Deposit to lending pool
-pnpm dev lend deposit 100 USDC --mock
+npx tsx src/cli.ts lend deposit 100 USDC --mock
 
 # View position
-pnpm dev lend position
+npx tsx src/cli.ts lend position
 
 # Withdraw
-pnpm dev lend withdraw 50 USDC --mock
+npx tsx src/cli.ts lend withdraw 50 USDC --mock
 ```
-
----
-
-## Verified Devnet Transactions
-
-Real transaction proofs from testing:
-
-| Feature | Transaction | Solscan Link |
-|---------|-------------|--------------|
-| **x402 Payment** | Ephemeral payment | [56WBWxu3...](https://solscan.io/tx/56WBWxu3jghJVH1QqDP2xbGMDo5hpkDjx4fZjrF6v1E4fC4nJhQs2JzMA9uvm7gZ1LgYQ57L3a8Jt4ZfDiNLiZxW?cluster=devnet) |
-| **PrivacyCash** | Shielding TX | [4K2fFois...](https://solscan.io/tx/4K2fFoisarX46aRTnQVHDGdogoZfp2QfjxzsdWDEQRtVPvEZmB6C6Aa2Qdn2VsMwfJ2UYQhoXU2wJV6NVK3di2C2?cluster=devnet) |
-
-> Note: Each run of `test-full-devnet-flow.ts` produces fresh transactions with new Solscan links
 
 ---
 
@@ -396,19 +309,19 @@ Real transaction proofs from testing:
 
 | Command | Description | Mode |
 |---------|-------------|------|
-| `pnpm dev faucet` | Get devnet SOL/USDC | Real |
-| `pnpm dev deposit 0.1` | Shield SOL to private pool | Real |
-| `pnpm dev withdraw 0.1` | Unshield from private pool | Real |
-| `pnpm dev balance` | Check balances | Real |
-| `pnpm dev pay <url> --devnet` | Private x402 payment | Real |
-| `pnpm dev pay <url> --mock` | Simulated payment | Mock |
-| `pnpm dev compliance check <addr> --mock` | Check compliance | Mock |
-| `pnpm dev compliance prove <addr> --mock` | Generate ZK proof | Mock |
-| `pnpm dev compliance verify <file> --mock` | Verify ZK proof | Mock |
-| `pnpm dev swap quote 100 USDC SOL` | Get swap quote | Mock |
-| `pnpm dev swap execute 100 USDC SOL --mock` | Execute private swap | Mock |
-| `pnpm dev lend deposit 100 USDC --mock` | Deposit to lending | Mock |
-| `pnpm dev lend position` | View lending position | Mock |
+| `npx tsx src/cli.ts faucet` | Get devnet SOL/USDC | Real |
+| `npx tsx src/cli.ts deposit 0.1` | Shield SOL to private pool | Real |
+| `npx tsx src/cli.ts withdraw 0.1` | Unshield from private pool | Real |
+| `npx tsx src/cli.ts balance` | Check balances | Real |
+| `npx tsx src/cli.ts pay <url> --devnet` | Private x402 payment | Real |
+| `npx tsx src/cli.ts pay <url> --mock` | Simulated payment | Mock |
+| `npx tsx src/cli.ts compliance check <addr>` | Check compliance | Real |
+| `npx tsx src/cli.ts compliance prove <addr>` | Generate ZK proof | Real |
+| `npx tsx src/cli.ts compliance verify <file> --mock` | Verify ZK proof | Mock |
+| `npx tsx src/cli.ts swap quote 100 USDC SOL` | Get swap quote | Mock |
+| `npx tsx src/cli.ts swap execute 100 USDC SOL --mock` | Execute private swap | Mock |
+| `npx tsx src/cli.ts lend deposit 100 USDC --mock` | Deposit to lending | Mock |
+| `npx tsx src/cli.ts lend position` | View lending position | Mock |
 
 ---
 
@@ -432,55 +345,13 @@ Real transaction proofs from testing:
 
 ---
 
----
-
-## Direct SDK Integration Test (Recommended)
-
-The fastest way to demo all components:
-
-```bash
-cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
-npx tsx test-full-devnet-flow.ts
-```
-
-This tests:
-1. **ShadowWire** - Account check on devnet
-2. **x402** - Real ephemeral payment (produces Solscan link)
-3. **Noir** - Real 388-byte Groth16 proof via CLI
-4. **Arcium** - MXE client initialization
-5. **PrivacyCash** - Balance query and shielding
-
----
-
-## Noir ZK Proofs (Standalone)
-
-```bash
-# Full proof generation example
-npx tsx examples/noir-cli-proofs.ts
-
-# Quick inline proof
-npx tsx -e "
-import * as noir from './src/noir';
-import { Keypair } from '@solana/web3.js';
-const prover = noir.createNoirProver({ useCLI: true, verbose: true });
-await prover.initialize();
-const result = await prover.proveCompliance(Keypair.generate().publicKey);
-console.log('Passed:', result.passed, 'Proof:', result.noirProof?.proof.length, 'bytes');
-"
-```
-
----
-
 ## Token Support
 
 ### SOL (Default)
 ```bash
 # All commands use SOL by default
-npx tsx test-full-devnet-flow.ts
-
-# SDK API:
-# await spyk.deposit('SOL', 0.5);
-# await spyk.getPrivateBalance('SOL');
+npx tsx src/cli.ts deposit 0.5
+npx tsx src/cli.ts pay https://api.example.com --devnet
 ```
 
 ### USDC (Devnet)
@@ -490,9 +361,8 @@ open https://faucet.circle.com/
 # Select: Solana -> Devnet -> Paste wallet address
 # Receive: 20 USDC (limit: 20 per 2 hours)
 
-# SDK API:
-# await spyk.deposit('USDC', 100);
-# await spyk.getPrivateBalance('USDC');
+# Deposit USDC
+npx tsx src/cli.ts deposit 10 --token USDC
 ```
 
 ---

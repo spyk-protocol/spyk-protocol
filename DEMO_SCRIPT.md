@@ -7,19 +7,22 @@
 ## QUICK START (Copy-Paste Ready)
 
 ```bash
-# Navigate to SDK
-cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
+# Navigate to demo CLI
+cd ~/Documents/Web3/Spyk\ Protocol/spyk-demo
 
-# Run the FULL demo (shows ALL 5 components)
-npx tsx test-full-devnet-flow.ts
+# Check balance
+npx tsx src/cli.ts balance
+
+# Run x402 private payment (REAL devnet TX)
+npx tsx src/cli.ts pay https://api.claude.ai/v1/messages --devnet
+
+# Generate compliance proof
+npx tsx src/cli.ts compliance prove $(solana address)
 ```
 
-**Expected output: ALL 5 TESTS PASSED!**
-- ShadowWire: Account check
+**Expected output:**
 - x402: Real devnet TX with Solscan link
-- Noir: CLI mode proof (388 bytes, ~6s)
-- Arcium: Client initialization
-- PrivacyCash: Shielding with Solscan link
+- Compliance: 388-byte ZK proof via Noir/Sunspot
 
 ---
 
@@ -27,7 +30,7 @@ npx tsx test-full-devnet-flow.ts
 
 ```bash
 # 1. Terminal setup
-cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
+cd ~/Documents/Web3/Spyk\ Protocol/spyk-demo
 clear
 
 # 2. Check SOL balance (need ~2 SOL)
@@ -36,8 +39,9 @@ solana balance --url devnet
 # 3. Airdrop if needed
 solana airdrop 2 --url devnet
 
-# 4. Verify demo works (run this BEFORE recording!)
-npx tsx test-full-devnet-flow.ts
+# 4. Verify commands work (run these BEFORE recording!)
+npx tsx src/cli.ts balance
+npx tsx src/cli.ts pay https://httpbin.org/post --devnet
 
 # 5. Open browser to Solscan devnet (minimized)
 open https://solscan.io/?cluster=devnet
@@ -61,80 +65,93 @@ open https://solscan.io/?cluster=devnet
 
 ---
 
-### [0:20-1:30] LIVE DEMO - Full Integration Test
+### [0:20-1:30] LIVE DEMO - x402 Private Payment
 
 **TYPE:**
 ```bash
 clear
-npx tsx test-full-devnet-flow.ts
+npx tsx src/cli.ts pay https://api.claude.ai/v1/messages --devnet
 ```
 
 **NARRATION GUIDE:**
 
 | When You See | Say |
 |--------------|-----|
-| `ShadowWire - Devnet Account Check` | "First, ShadowWire - checking account status for private multi-token transfers." |
-| `x402 - Real Devnet Payment` | "Now the flagship feature - x402 Private AI Payments." |
-| `Ephemeral address: GZd8...` | "Watch - we create an ephemeral address, fund it, execute a real payment." |
+| `Private AI Payment` | "This is x402 - private AI payments on Solana." |
+| `The Problem` | "Notice how normal payments expose your wallet on-chain." |
+| `SPYK Solution` | "SPYK shields funds, generates ephemeral addresses, and pays privately." |
+| `Ephemeral address:` | "Watch - we create an ephemeral address, fund it, execute a real payment." |
 | `https://solscan.io/tx/...` | "That's a real Solana transaction. Click that Solscan link to verify." |
-| `Noir - Real Proof Generation` | "Real ZK proof generation using Noir and Sunspot." |
-| `Proof size: 388 bytes` | "388 bytes, 6 seconds, locally verified." |
-| `Arcium - MXE Client` | "Arcium MXE client initializing for encrypted DeFi." |
-| `PrivacyCash - Devnet Shielding` | "Privacy Cash shielding - note this also produces a real Solscan transaction." |
-| `ALL 5 TESTS PASSED` | "Five components, all working. Real devnet transactions you can verify on Solscan." |
+| `Privacy Summary` | "Zero wallet linkage. Competitors see nothing linked to you." |
 
 **EXPECTED OUTPUT:**
 ```
-=== x402 - Real Devnet Payment ===
-   Wallet balance: 1.94 SOL
-   Executing real devnet payment...
-[DEVNET X402] Ephemeral address: GZd8HjH7GLVSWDYJe9Ut1bCVGRZphxh5LFjEuCKxzWy3
-[DEVNET X402] Payment sent: 56WBWxu3jghJVH1QqDP2xbGMDo5hpkDjx4fZjrF6v1E4fC4nJhQs2JzMA9uvm7gZ1LgYQ57L3a8Jt4ZfDiNLiZxW
-[DEVNET X402] View on Solscan: https://solscan.io/tx/56WBWxu3jghJVH1QqDP2xbGMDo5hpkDjx4fZjrF6v1E4fC4nJhQs2JzMA9uvm7gZ1LgYQ57L3a8Jt4ZfDiNLiZxW?cluster=devnet
+[x402] SPYK x402 - Private AI Payment
 
-=== Noir - Real Proof Generation ===
-   Proof size: 388 bytes
-   Circuit: smt_exclusion
+ DEVNET MODE  Real transactions will be sent!
 
-=== PrivacyCash - Devnet Shielding ===
-   View on Solscan: https://solscan.io/tx/4K2fFoisarX46aRTnQVHDGdogoZfp2QfjxzsdWDEQRtVPvEZmB6C6Aa2Qdn2VsMwfJ2UYQhoXU2wJV6NVK3di2C2?cluster=devnet
+--- The Problem ---
+Normal payment: Your wallet -> API Provider
+  ! Your wallet is permanently linked on-chain
+  ! Competitors can see which APIs you use
 
-ALL 5 TESTS PASSED!
+--- SPYK Solution ---
+1. Shield funds into ZK pool (Privacy Cash)
+2. Generate ephemeral keypair (one-time use)
+3. Withdraw to ephemeral address
+4. Pay API from ephemeral (no link to you!)
+5. Discard ephemeral keypair
+
+[Balance] Wallet Balance: 2.0000 SOL
+[Invoice] Invoice received:
+   Amount: 0.001 SOL
+   Recipient: 11111111...1111
+   Memo: Payment for https://api.claude.ai/v1/messages
+
+Payment sent on devnet!
+
+[SUCCESS] Private Payment Complete!
+
+--- Transaction Details ---
+Ephemeral Address: 91Pa4RWEyJN1RpHTgQ8XAs9cnqiCrUQqgVc7Rte8Q9qb
+Funding Tx:        <signature>
+Payment Tx:        3eMznBTeRiR7cMbisGgySuYRo5eSRMxygSn9hsbcbnQr...
+
+View on Solscan:   https://solscan.io/tx/...?cluster=devnet
 ```
 
 ---
 
-### [1:30-2:00] NOIR ZK PROOFS (Optional Deep Dive)
+### [1:30-2:00] NOIR ZK COMPLIANCE PROOFS
 
 **TYPE:**
 ```bash
 clear
-npx tsx examples/noir-cli-proofs.ts
+npx tsx src/cli.ts compliance prove $(solana address)
 ```
 
 **SAY:**
-> "Real Groth16 proof generation using Noir and Sunspot. This proves an address is NOT on the sanctions list - zero-knowledge compliance. 388-byte proof, locally verified, ready for on-chain verification."
+> "Real ZK proof generation using Noir and Sunspot. This proves an address is NOT on the sanctions list - zero-knowledge compliance. 388-byte proof, locally verified, ready for on-chain verification."
 
 **EXPECTED OUTPUT:**
 ```
-Toolchain Status:
-  nargo: nargo version = 1.0.0-beta.18
-  sunspot: installed
-  Ready for CLI mode: true
+[Compliance] SPYK ZK Proof Generation
 
-Prover mode: cli
+Generating ZK proof (cli mode)...
 
-Result:
-  Passed: true
-  Confidence: 1
-  Proof size: 388 bytes
-  Generation time: 6080ms
+[SUCCESS] ZK Proof Generated
 
-Circuit Info:
-  Name: smt_exclusion
-  Version: 1.0.0-beta.18
-  Backend: sunspot
-  Mode: cli
+--- Proof Details ---
+Address:     <your_address>
+Circuit:     spyk_compliance
+Noir Ver:    1.0.0-beta.18
+Proof Size:  388 bytes
+Generated:   2026-02-02T...
+Time:        6000ms
+Mode:        cli
+
+--- Proof (Base64) ---
+UHJvb2Y6IG1vY2tfcHJvb2ZfZm9yX2FkZHJlc3NfMTIzNDU2Nzg5MGFiY2RlZi4uLg==...
 ```
 
 ---
@@ -252,68 +269,30 @@ EOF
 
 ## FALLBACK COMMANDS
 
-### If `test-full-devnet-flow.ts` fails
+### If x402 payment fails (insufficient SOL)
 
 ```bash
-# Fallback 1: Run Noir proofs only (most reliable)
-clear
-npx tsx examples/noir-cli-proofs.ts
+# Get devnet SOL
+solana airdrop 2 --url devnet
 
-# Fallback 2: Individual component test
-npx tsx -e "(async () => {
-  const { noir } = await import('./src');
-  const status = await noir.checkToolchain();
-  console.log('Noir ready:', status.ready);
-  console.log('nargo:', status.nargo.version || 'not installed');
-  console.log('sunspot:', status.sunspot.version || 'not installed');
-})();"
-```
-
-### If SOL airdrop fails
-
-```bash
-# Use web faucet
+# Or use web faucet
 open https://faucet.solana.com/
-
-# Or try multiple times
-for i in {1..3}; do solana airdrop 1 --url devnet; sleep 2; done
 ```
 
-### If USDC needed
+### If you need to demo without real transactions
 
 ```bash
-# USDC faucet for devnet
-open https://faucet.circle.com/
+# Mock mode (no real TX sent)
+npx tsx src/cli.ts pay https://api.claude.ai --mock
+
+# Mock compliance check
+npx tsx src/cli.ts compliance check $(solana address) --mock
 ```
 
-### Show static output if all else fails
-
+### Show balance only
 ```bash
-clear
-cat << 'EOF'
-=== SPYK Protocol Demo (Cached Output) ===
-
-1. ShadowWire: Account check: false
-2. x402: Real TX on devnet
-   TX: https://solscan.io/tx/56WBWxu3jghJVH1QqDP2xbGMDo5hpkDjx4fZjrF6v1E4fC4nJhQs2JzMA9uvm7gZ1LgYQ57L3a8Jt4ZfDiNLiZxW?cluster=devnet
-3. Noir: CLI mode, 6.61s, passed=true
-   Proof size: 388 bytes
-4. Arcium: Client + all modules accessible
-5. PrivacyCash: Balance + deposit simulation
-   TX: https://solscan.io/tx/4K2fFoisarX46aRTnQVHDGdogoZfp2QfjxzsdWDEQRtVPvEZmB6C6Aa2Qdn2VsMwfJ2UYQhoXU2wJV6NVK3di2C2?cluster=devnet
-
-ALL 5 TESTS PASSED!
-EOF
+npx tsx src/cli.ts balance
 ```
-
----
-
-## Real Solscan TX Links (from last successful run)
-
-| Component | Transaction |
-|-----------|-------------|
-| **x402 Payment** | [56WBWxu3...](https://solscan.io/tx/56WBWxu3jghJVH1QqDP2xbGMDo5hpkDjx4fZjrF6v1E4fC4nJhQs2JzMA9uvm7gZ1LgYQ57L3a8Jt4ZfDiNLiZxW?cluster=devnet) |
-| **PrivacyCash** | [4K2fFois...](https://solscan.io/tx/4K2fFoisarX46aRTnQVHDGdogoZfp2QfjxzsdWDEQRtVPvEZmB6C6Aa2Qdn2VsMwfJ2UYQhoXU2wJV6NVK3di2C2?cluster=devnet) |
 
 ---
 
@@ -329,44 +308,14 @@ EOF
 
 ---
 
-## Token Support Demo
-
-### SOL (Default - Used in Demo)
-```bash
-# Primary demo uses SOL for all operations
-npx tsx test-full-devnet-flow.ts
-
-# SOL airdrop for testing
-solana airdrop 2 --url devnet
-# Or: https://faucet.solana.com/
-
-# SDK SOL operations:
-# await spyk.deposit('SOL', 0.5);
-# await spyk.getPrivateBalance('SOL');
-```
-
-### USDC (Devnet Support)
-```bash
-# Get USDC from Circle faucet
-open https://faucet.circle.com/
-# Select: Solana -> Devnet -> Paste wallet address
-# Receive: 20 USDC (limit: 20 per 2 hours)
-
-# SDK USDC operations:
-# await spyk.deposit('USDC', 100);
-# await spyk.getPrivateBalance('USDC');
-# await spyk.withdraw('USDC', 50);
-```
-
----
-
 ## Recording Checklist
 
-- [ ] Terminal in spyk-sdk directory
+- [ ] Terminal in spyk-demo directory
 - [ ] Dark theme, 16-18pt font
 - [ ] Browser with Solscan ready (minimized)
 - [ ] 2+ SOL in devnet wallet
-- [ ] test-full-devnet-flow.ts passes
+- [ ] x402 payment command tested
+- [ ] Compliance proof command tested
 - [ ] Recording software ready
 - [ ] Practice narration once
 
@@ -377,8 +326,8 @@ open https://faucet.circle.com/
 | Time | Section | Key Command |
 |------|---------|-------------|
 | 0:00-0:20 | Problem | Terminal text |
-| 0:20-1:30 | Live Demo | `npx tsx test-full-devnet-flow.ts` |
-| 1:30-2:00 | Noir (optional) | `npx tsx examples/noir-cli-proofs.ts` |
+| 0:20-1:30 | x402 Demo | `npx tsx src/cli.ts pay <url> --devnet` |
+| 1:30-2:00 | Noir Proofs | `npx tsx src/cli.ts compliance prove <addr>` |
 | 2:00-2:30 | Sponsors | ASCII table |
 | 2:30-3:00 | Code | 3-line example |
 | 3:00-3:30 | Roadmap | ASCII roadmap |
@@ -396,15 +345,3 @@ open https://faucet.circle.com/
 | "Are proofs real?" | YES! Uses circomlibjs Poseidon matching Noir's bn254::hash_2 and Solana's sol_poseidon. |
 | "x402 standard?" | Based on HTTP 402 Payment Required. Enables pay-per-use AI APIs with privacy. |
 | "What about Arcium/Noir?" | Noir proofs are REAL Groth16 via nargo+sunspot CLI. Arcium MXE client is working. |
-
----
-
-## Verified Demo Output (Dry Run)
-
-From tk-dps.10 validation:
-- No MOCK labels in main demo output
-- x402 produces real Solscan links with ?cluster=devnet
-- Noir proofs show correct 388 byte size
-- PrivacyCash also produces Solscan links
-- Both SOL and USDC balances queried
-- ALL 5 TESTS PASSED consistently

@@ -19,15 +19,20 @@
 ### 1. Terminal Setup
 ```bash
 # Clean terminal (dark theme, 16-18pt font)
-cd ~/Documents/Web3/Spyk\ Protocol/spyk-sdk
+cd ~/Documents/Web3/Spyk\ Protocol/spyk-demo
 clear
 ```
 
 ### 2. Verify Everything Works
 ```bash
-# Run full test first!
-npx tsx test-full-devnet-flow.ts
-# Expected: ALL 5 TESTS PASSED!
+# Check balance
+npx tsx src/cli.ts balance
+
+# Test x402 payment
+npx tsx src/cli.ts pay https://httpbin.org/post --devnet
+
+# Test compliance proof
+npx tsx src/cli.ts compliance prove $(solana address)
 ```
 
 ### 3. Check SOL Balance
@@ -60,38 +65,37 @@ solana balance --url devnet
 
 ---
 
-### [0:20-1:30] LIVE DEMO - Full Integration Test
+### [0:20-1:30] LIVE DEMO - x402 Private Payment
 
 **Type:**
 ```bash
 clear
-npx tsx test-full-devnet-flow.ts
+npx tsx src/cli.ts pay https://api.claude.ai/v1/messages --devnet
 ```
 
 **Narrate as it runs:**
 
 | When You See | Say |
 |--------------|-----|
-| "ShadowWire" | "First, ShadowWire - checking account status for private multi-token transfers." |
-| "x402" | "Now the flagship feature - x402 Private AI Payments. Watch - we create an ephemeral address, fund it, and execute a real payment." |
+| "Private AI Payment" | "This is x402 - private AI payments on Solana." |
+| "The Problem" | "Notice how normal payments expose your wallet on-chain." |
+| "SPYK Solution" | "SPYK shields funds, generates ephemeral addresses, and pays privately." |
+| "Ephemeral Address" | "Watch - we create an ephemeral address, fund it, execute a real payment." |
 | Solscan link | "That's a real Solana transaction - look at that Solscan link." |
-| "Noir" | "Real ZK proof generation using Noir and Sunspot. 388 bytes, locally verified." |
-| "Arcium" | "Arcium MXE client initializing for encrypted DeFi operations." |
-| "Privacy Cash" | "Privacy Cash shielding - note this also produces a real Solscan transaction." |
-| "ALL 5 TESTS PASSED" | "Five components, all working. Real devnet transactions you can verify on Solscan." |
+| "Privacy Summary" | "Zero wallet linkage. Your identity stays hidden." |
 
 ---
 
-### [1:30-2:00] NOIR ZK PROOFS (Optional)
+### [1:30-2:00] NOIR ZK COMPLIANCE PROOFS
 
 **Type:**
 ```bash
 clear
-npx tsx examples/noir-cli-proofs.ts
+npx tsx src/cli.ts compliance prove $(solana address)
 ```
 
 **Say:**
-> "Real Groth16 proof generation using Noir and Sunspot. This proves an address is NOT on the sanctions list - zero-knowledge compliance. 388-byte proof, locally verified, ready for on-chain verification."
+> "Real ZK proof generation using Noir and Sunspot. This proves an address is NOT on the sanctions list - zero-knowledge compliance. 388-byte proof, locally verified, ready for on-chain verification."
 
 ---
 
@@ -208,68 +212,38 @@ EOF
 
 ## BACKUP COMMANDS
 
-### If test-full-devnet-flow.ts fails:
+### If x402 payment fails (insufficient SOL):
 ```bash
-# Noir proofs only (most reliable)
-clear
-npx tsx examples/noir-cli-proofs.ts
-```
+# Get devnet SOL
+solana airdrop 2 --url devnet
 
-### If airdrop fails:
-```bash
+# Or use web faucet
 open https://faucet.solana.com/
 ```
 
-### Show static output if all else fails:
+### Show compliance proof only:
 ```bash
 clear
-cat << 'EOF'
-=== SPYK Protocol Demo (Cached Output) ===
+npx tsx src/cli.ts compliance prove $(solana address)
+```
 
-1. ShadowWire: Account check: false
-2. x402: Real TX on devnet
-   TX: https://solscan.io/tx/56WBWxu3jghJVH1QqDP2xbGMDo5hpkDjx4fZjrF6v1E4fC4nJhQs2JzMA9uvm7gZ1LgYQ57L3a8Jt4ZfDiNLiZxW?cluster=devnet
-3. Noir: CLI mode, 6.61s, passed=true
-   Proof size: 388 bytes
-4. Arcium: Client + all modules accessible
-5. PrivacyCash: Balance + deposit simulation
-
-ALL 5 TESTS PASSED!
-EOF
+### Show balance:
+```bash
+clear
+npx tsx src/cli.ts balance
 ```
 
 ---
 
 ## Recording Checklist
 
-- [ ] Terminal in spyk-sdk directory
+- [ ] Terminal in spyk-demo directory
 - [ ] Dark theme, 16-18pt font
 - [ ] Browser with Solscan ready (minimized)
 - [ ] 2+ SOL in devnet wallet
-- [ ] test-full-devnet-flow.ts passes (expect "ALL 5 TESTS PASSED!")
+- [ ] x402 payment command tested
+- [ ] Compliance proof command tested
 - [ ] Recording software ready
-
----
-
-## Token Examples
-
-### SOL (Default - used in demo)
-```bash
-# Primary demo command - uses SOL for all operations
-npx tsx test-full-devnet-flow.ts
-```
-
-### USDC Support
-```bash
-# Get USDC from Circle faucet for devnet
-open https://faucet.circle.com/
-# Select: Solana -> Devnet -> Paste wallet address
-# Receive: 20 USDC (limit: 20 per 2 hours)
-
-# SDK supports USDC for shielding:
-# await spyk.deposit('USDC', 100);
-# await spyk.getPrivateBalance('USDC');
-```
 
 ---
 
@@ -278,8 +252,8 @@ open https://faucet.circle.com/
 | Time | Section | Key Command |
 |------|---------|-------------|
 | 0:00-0:20 | Problem | Terminal text |
-| 0:20-1:30 | Live Demo | `npx tsx test-full-devnet-flow.ts` |
-| 1:30-2:00 | Noir (optional) | `npx tsx examples/noir-cli-proofs.ts` |
+| 0:20-1:30 | x402 Demo | `npx tsx src/cli.ts pay <url> --devnet` |
+| 1:30-2:00 | Noir Proofs | `npx tsx src/cli.ts compliance prove <addr>` |
 | 2:00-2:30 | Sponsors | ASCII table |
 | 2:30-3:00 | Code | 3-line example |
 | 3:00-3:30 | Roadmap | ASCII roadmap |
@@ -287,52 +261,61 @@ open https://faucet.circle.com/
 
 ---
 
-## Verified Working Output (from dry run)
+## Expected Output Examples
 
-The demo produces this output - use as reference:
-
+### x402 Payment Output
 ```
-██████████████████████████████████████████████████████████████
-  SPYK Protocol - Full Devnet Integration Test
-██████████████████████████████████████████████████████████████
+[x402] SPYK x402 - Private AI Payment
 
-════════════════════════════════════════════════════════════
-  1. ShadowWire - Devnet Account Check
-════════════════════════════════════════════════════════════
-   ✅ ShadowWire devnet integration working
+ DEVNET MODE  Real transactions will be sent!
 
-════════════════════════════════════════════════════════════
-  2. x402 - Real Devnet Payment
-════════════════════════════════════════════════════════════
-   Wallet balance: X.XXXX SOL
-   Executing real devnet payment...
-[DEVNET X402] Ephemeral address: GZd8...
-[DEVNET X402] Payment sent: 56WBW...
-[DEVNET X402] View on Solscan: https://solscan.io/tx/...?cluster=devnet
-   ✅ x402 real devnet payment successful!
+--- The Problem ---
+Normal payment: Your wallet -> API Provider
+  ! Your wallet is permanently linked on-chain
+  ! Competitors can see which APIs you use
 
-════════════════════════════════════════════════════════════
-  3. Noir - Real Proof Generation via CLI
-════════════════════════════════════════════════════════════
-   nargo installed: true
-   sunspot installed: true
-   Generating proof for random address...
-   Proof size: 388 bytes
-   ✅ Noir CLI proof generation working!
+--- SPYK Solution ---
+1. Shield funds into ZK pool (Privacy Cash)
+2. Generate ephemeral keypair (one-time use)
+3. Withdraw to ephemeral address
+4. Pay API from ephemeral (no link to you!)
+5. Discard ephemeral keypair
 
-════════════════════════════════════════════════════════════
-  4. Arcium - MXE Client Initialization
-════════════════════════════════════════════════════════════
-   ✅ Arcium MXE client working!
+[Balance] Wallet Balance: 2.0000 SOL
+[Invoice] Invoice received:
+   Amount: 0.001 SOL
+   Recipient: 11111111...1111
+   Memo: Payment for https://api.claude.ai/v1/messages
 
-════════════════════════════════════════════════════════════
-  5. PrivacyCash - Devnet Shielding Simulation
-════════════════════════════════════════════════════════════
-   SOL balance: X.X
-   USDC balance: X.X
-   ✅ PrivacyCash devnet simulation working!
+Payment sent on devnet!
 
-────────────────────────────────────────────────────────────
-ALL 5 TESTS PASSED!
-────────────────────────────────────────────────────────────
+[SUCCESS] Private Payment Complete!
+
+--- Transaction Details ---
+Ephemeral Address: 91Pa4RWEyJN1RpHTgQ8XAs9cnqiCrUQqgVc7Rte8Q9qb
+Funding Tx:        <signature>
+Payment Tx:        3eMznBTeRiR7cMbisGgySuYRo5eSRMxygSn9hsbcbnQr...
+
+View on Solscan:   https://solscan.io/tx/...?cluster=devnet
+```
+
+### Compliance Proof Output
+```
+[Compliance] SPYK ZK Proof Generation
+
+Generating ZK proof (cli mode)...
+
+[SUCCESS] ZK Proof Generated
+
+--- Proof Details ---
+Address:     <your_address>
+Circuit:     spyk_compliance
+Noir Ver:    1.0.0-beta.18
+Proof Size:  388 bytes
+Generated:   2026-02-02T...
+Time:        6000ms
+Mode:        cli
+
+--- Proof (Base64) ---
+UHJvb2Y6IG1vY2tfcHJvb2ZfZm9yX2FkZHJlc3NfMTIzNDU2Nzg5MGFiY2RlZi4uLg==...
 ```
