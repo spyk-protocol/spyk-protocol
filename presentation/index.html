@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPYK Protocol - Hackathon Presentation</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai.min.css">
+  <style>
+    :root {
+      --r-background-color: #0d0d0d;
+      --r-main-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --r-heading-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --r-main-color: #e0e0e0;
+      --r-heading-color: #ffffff;
+      --r-link-color: #9d4edd;
+      --r-selection-background-color: #9d4edd;
+      --spyk-purple: #9d4edd;
+      --spyk-cyan: #00d9ff;
+      --spyk-green: #00ff88;
+    }
+
+    .reveal { font-size: 32px; }
+    .reveal h1 { font-size: 2.5em; font-weight: 700; margin-bottom: 0.5em; }
+    .reveal h2 {
+      font-size: 1.8em;
+      font-weight: 600;
+      color: var(--spyk-purple);
+      margin-bottom: 0.8em;
+      text-align: center;
+    }
+    .reveal h3 { font-size: 1.3em; font-weight: 500; }
+
+    /* Base slide styling */
+    .reveal .slides section {
+      text-align: left;
+      padding: 40px 80px;
+      box-sizing: border-box;
+      height: 100%;
+      display: flex !important;
+      flex-direction: column;
+    }
+    .reveal .slides section.center {
+      text-align: center;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Corner logo on all slides */
+    .corner-logo {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 80px;
+      height: auto;
+      opacity: 0.6;
+      z-index: 100;
+      transition: opacity 0.3s ease;
+    }
+    .corner-logo:hover {
+      opacity: 1;
+    }
+
+    /* Title slide */
+    .title-slide {
+      justify-content: center !important;
+    }
+    .title-slide .logo {
+      width: 180px;
+      height: auto;
+      margin-bottom: 1.5em;
+    }
+    .title-slide h1 {
+      background: linear-gradient(135deg, var(--spyk-purple) 0%, var(--spyk-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-size: 3.2em;
+      margin-bottom: 0.3em;
+      letter-spacing: -0.02em;
+    }
+    .title-slide .tagline {
+      font-size: 1.4em;
+      color: #ccc;
+      margin-top: 0.3em;
+      margin-bottom: 0;
+    }
+    .title-slide .tagline-sub {
+      font-size: 0.95em;
+      color: #777;
+      margin-top: 0.5em;
+      font-family: monospace;
+      letter-spacing: 0.02em;
+    }
+    .title-slide .hackathon {
+      font-size: 1em;
+      color: var(--spyk-purple);
+      margin-top: 2em;
+      font-weight: 500;
+    }
+
+    /* Problem slide */
+    .problem-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 850px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 0 20px;
+    }
+    .problem-intro {
+      font-size: 1em;
+      color: #aaa;
+      text-align: center;
+      margin-bottom: 1em;
+    }
+    .problem-intro strong {
+      color: #ff6b6b;
+    }
+    .problem-scenario {
+      margin-bottom: 0.8em;
+    }
+    .scenario-title {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 0.4em;
+    }
+    .problem-list {
+      margin-top: 0.8em;
+    }
+    .problem-item {
+      display: flex;
+      align-items: center;
+      margin: 0.4em 0;
+      font-size: 0.85em;
+    }
+    .problem-item .icon {
+      font-size: 1.1em;
+      margin-right: 0.5em;
+      width: 30px;
+      flex-shrink: 0;
+      text-align: center;
+    }
+    .exposed-box {
+      background: rgba(255, 50, 50, 0.08);
+      border: 1px solid rgba(255, 50, 50, 0.4);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.65em;
+      line-height: 1.7;
+    }
+    .exposed-box .label {
+      color: #888;
+      font-weight: 600;
+      display: inline-block;
+      min-width: 65px;
+    }
+    .exposed-box .exposed-tag {
+      color: #ff6b6b;
+      font-weight: 600;
+      margin-left: 0.3em;
+      font-size: 0.9em;
+    }
+
+    /* Solution slide */
+    .solution-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 950px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .solution-intro {
+      font-size: 0.9em;
+      color: #888;
+      margin-bottom: 1.2em;
+      text-align: center;
+    }
+    .solution-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 1em;
+    }
+    .solution-category {
+      background: rgba(157, 78, 221, 0.08);
+      border: 1px solid rgba(157, 78, 221, 0.3);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .cat-title {
+      color: var(--spyk-purple);
+      font-weight: 600;
+      font-size: 0.85em;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(157, 78, 221, 0.3);
+    }
+    .cat-items {
+      font-size: 0.72em;
+      color: #aaa;
+      line-height: 1.6;
+    }
+    .cat-items div {
+      margin: 4px 0;
+    }
+    .solution-result {
+      text-align: center;
+      font-size: 0.85em;
+      color: var(--spyk-green);
+      margin-top: 0.8em;
+    }
+    .check {
+      color: var(--spyk-green);
+      margin-right: 0.6em;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    /* Flow diagram */
+    .flow-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .flow-intro {
+      text-align: center;
+      font-size: 0.85em;
+      color: #888;
+      margin-bottom: 1.2em;
+    }
+    .flow-intro strong {
+      color: var(--spyk-cyan);
+    }
+    .flow-container {
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      gap: 30px;
+      margin: 1em 0;
+    }
+    .flow-step {
+      background: rgba(157, 78, 221, 0.1);
+      border: 2px solid var(--spyk-purple);
+      border-radius: 14px;
+      padding: 24px 20px;
+      width: 240px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .flow-step .number {
+      background: var(--spyk-purple);
+      color: white;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+    .flow-step h4 {
+      color: #fff;
+      margin: 8px 0;
+      font-size: 1.1em;
+      font-weight: 600;
+    }
+    .flow-step p {
+      color: #999;
+      font-size: 0.72em;
+      margin: 0;
+      line-height: 1.4;
+    }
+    .flow-result {
+      text-align: center;
+      margin-top: 1.2em;
+      padding-top: 1em;
+      border-top: 1px solid #333;
+    }
+    .flow-result .label { color: #666; font-size: 0.85em; margin-bottom: 0.3em; }
+    .flow-result .highlight { color: var(--spyk-green); font-size: 1em; font-weight: 500; }
+    .flow-result .note { color: #666; font-size: 0.8em; margin-top: 0.5em; }
+
+    /* Architecture */
+    .arch-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .arch-layer {
+      background: rgba(100, 100, 100, 0.15);
+      border: 2px solid #444;
+      border-radius: 12px;
+      padding: 18px 24px;
+      text-align: center;
+    }
+    .arch-layer.app {
+      border-color: var(--spyk-purple);
+      background: rgba(157, 78, 221, 0.1);
+    }
+    .arch-layer.sdk {
+      border-color: var(--spyk-cyan);
+      background: rgba(0, 217, 255, 0.05);
+    }
+    .arch-layer.solana {
+      border-color: var(--spyk-green);
+      background: rgba(0, 255, 136, 0.08);
+    }
+    .arch-layer strong {
+      font-size: 0.95em;
+      letter-spacing: 0.05em;
+    }
+    .arch-layer .install-hint {
+      font-size: 0.65em;
+      color: #777;
+      margin-top: 6px;
+      font-family: monospace;
+    }
+    .arch-modules {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .arch-module {
+      background: rgba(0, 217, 255, 0.15);
+      border: 1px solid rgba(0, 217, 255, 0.5);
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 0.65em;
+      white-space: nowrap;
+    }
+    .arrow-down {
+      text-align: center;
+      font-size: 1.3em;
+      color: #555;
+      margin: 8px 0;
+    }
+
+    /* Sponsors - Categorized */
+    .sponsor-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .sponsor-categories {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .sponsor-cat {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .sponsor-cat-title {
+      color: var(--spyk-cyan);
+      font-size: 0.75em;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #333;
+    }
+    .sponsor-cat-items {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sponsor-item {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .sponsor-item .name {
+      color: var(--spyk-purple);
+      font-weight: 600;
+      font-size: 0.75em;
+      white-space: nowrap;
+    }
+    .sponsor-item .name::before {
+      content: ">";
+      color: var(--spyk-green);
+      margin-right: 6px;
+    }
+    .sponsor-item .desc {
+      color: #666;
+      font-size: 0.65em;
+    }
+    .sponsor-summary {
+      text-align: center;
+      color: var(--spyk-purple);
+      font-size: 0.9em;
+      margin-top: 1em;
+      font-weight: 500;
+    }
+
+    /* Code */
+    .code-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .reveal pre {
+      width: 100%;
+      max-width: 800px;
+      font-size: 0.5em;
+      box-shadow: none;
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 0 auto;
+    }
+    .reveal pre code {
+      max-height: 420px;
+      background: transparent;
+      line-height: 1.5;
+    }
+    .code-note {
+      text-align: center;
+      color: #777;
+      margin-top: 1.2em;
+      font-size: 0.9em;
+    }
+
+    /* Status table */
+    .status-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .status-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8em;
+    }
+    .status-table th, .status-table td {
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .status-table th {
+      color: var(--spyk-purple);
+      font-weight: 600;
+      border-bottom: 2px solid #333;
+    }
+    .status-table td:first-child {
+      font-weight: 500;
+    }
+    .status-real { color: var(--spyk-green); font-weight: 600; }
+    .status-sim { color: #ffaa00; font-weight: 600; }
+    .status-note {
+      text-align: center;
+      color: #666;
+      margin-top: 1.2em;
+      font-size: 0.8em;
+    }
+
+    /* Roadmap */
+    .roadmap-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .roadmap-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .roadmap-section {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .roadmap-section h4 {
+      color: var(--spyk-purple);
+      margin: 0 0 0.8em;
+      font-size: 0.95em;
+      font-weight: 600;
+      text-align: center;
+      padding-bottom: 0.6em;
+      border-bottom: 1px solid #333;
+    }
+    .roadmap-section ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .roadmap-section li {
+      margin: 0.5em 0;
+      font-size: 0.72em;
+      color: #bbb;
+      padding-left: 1.2em;
+      position: relative;
+    }
+    .roadmap-section li::before {
+      content: ">";
+      color: #555;
+      position: absolute;
+      left: 0;
+    }
+    .roadmap-section li.done {
+      color: #ddd;
+    }
+    .roadmap-section li.done::before {
+      content: ">";
+      color: var(--spyk-green);
+    }
+
+    /* Closing slide */
+    .closing-slide {
+      justify-content: center !important;
+    }
+    .closing-slide .logo {
+      width: 160px;
+      height: auto;
+      margin-bottom: 1em;
+    }
+    .closing-slide h1 {
+      background: linear-gradient(135deg, var(--spyk-purple) 0%, var(--spyk-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-size: 2.8em;
+      margin-bottom: 0.2em;
+    }
+    .closing-slide .subtitle {
+      font-size: 1.15em;
+      color: #999;
+      margin-bottom: 1.2em;
+    }
+    .cta-box {
+      background: linear-gradient(135deg, rgba(157, 78, 221, 0.15) 0%, rgba(0, 217, 255, 0.15) 100%);
+      border: 2px solid var(--spyk-purple);
+      border-radius: 14px;
+      padding: 20px 40px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 1em;
+      color: #fff;
+    }
+    .closing-slide .github {
+      color: #555;
+      font-size: 0.85em;
+      margin-top: 1.2em;
+    }
+    .closing-tagline {
+      font-size: 1em;
+      color: #666;
+      margin-top: 1.5em;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <!-- Corner logo on all slides -->
+    <img src="../assets/logo/logo-white.png" alt="SPYK" class="corner-logo">
+
+    <div class="slides">
+
+      <!-- SLIDE 1: Title -->
+      <section class="center title-slide">
+        <img src="../assets/logo/logo-white.png" alt="SPYK Protocol" class="logo">
+        <h1>SPYK PROTOCOL</h1>
+        <p class="tagline">Privacy SDK for AI Agents on Solana</p>
+        <p class="tagline-sub">MCP Server + ZK Shielding + Private Payments</p>
+        <p class="hackathon">Solana Privacy Hackathon 2025</p>
+      </section>
+
+      <!-- SLIDE 2: Problem -->
+      <section>
+        <h2>The Problem</h2>
+        <div class="problem-content">
+          <p class="problem-intro">Every Solana transaction is <strong>public and permanent</strong></p>
+
+          <div class="problem-scenario">
+            <div class="scenario-title">Example: Your AI agent pays for Claude API</div>
+            <div class="exposed-box">
+              <div><span class="label">FROM:</span> 7xK9...mP2q <span class="exposed-tag">← YOUR WALLET (EXPOSED)</span></div>
+              <div><span class="label">TO:</span> Anthropic Treasury</div>
+              <div><span class="label">AMOUNT:</span> 0.5 SOL</div>
+            </div>
+          </div>
+
+          <div class="problem-list">
+            <div class="problem-item">
+              <span class="icon">👁️</span>
+              <span>Anyone can see which APIs you use</span>
+            </div>
+            <div class="problem-item">
+              <span class="icon">📊</span>
+              <span>Competitors track your spending patterns</span>
+            </div>
+            <div class="problem-item">
+              <span class="icon">🔗</span>
+              <span>Your wallet identity is linked forever</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: Solution -->
+      <section>
+        <h2>The Solution: SPYK Protocol</h2>
+        <div class="solution-content">
+          <p class="solution-intro">Privacy SDK for AI agents — payments, DeFi, and compliance</p>
+
+          <div class="solution-grid">
+            <div class="solution-category">
+              <div class="cat-title">Private Payments</div>
+              <div class="cat-items">
+                <div>x402 ephemeral wallets</div>
+                <div>ZK shielded pools</div>
+              </div>
+            </div>
+            <div class="solution-category">
+              <div class="cat-title">Encrypted DeFi</div>
+              <div class="cat-items">
+                <div>Private swaps (Arcium)</div>
+                <div>Hidden lending amounts</div>
+              </div>
+            </div>
+            <div class="solution-category">
+              <div class="cat-title">ZK Compliance</div>
+              <div class="cat-items">
+                <div>Noir proofs (Groth16)</div>
+                <div>Range OFAC screening</div>
+              </div>
+            </div>
+          </div>
+
+          <p class="solution-result">Result: Operate on-chain without exposing your identity or activity</p>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: How Private Payments Work -->
+      <section>
+        <h2>How SPYK Private Payments Work</h2>
+        <div class="flow-content">
+          <p class="flow-intro">Based on <strong>x402</strong> protocol — HTTP 402 "Payment Required" for AI APIs</p>
+
+          <div class="flow-container">
+            <div class="flow-step">
+              <div class="number">1</div>
+              <h4>Shield</h4>
+              <p>Deposit funds into ZK pool</p>
+            </div>
+            <div class="flow-step">
+              <div class="number">2</div>
+              <h4>Generate</h4>
+              <p>Create one-time ephemeral wallet</p>
+            </div>
+            <div class="flow-step">
+              <div class="number">3</div>
+              <h4>Pay</h4>
+              <p>Pay API from ephemeral wallet</p>
+            </div>
+          </div>
+
+          <div class="flow-result">
+            <div class="label">On-chain result:</div>
+            <div class="highlight">Random address → API Treasury</div>
+            <div class="note">No link to your wallet. Untraceable.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: Architecture -->
+      <section>
+        <h2>Architecture</h2>
+        <div class="arch-content">
+          <div class="arch-layer app">
+            <strong>YOUR APPLICATION</strong>
+            <div class="install-hint">npm install @spyk-protocol/sdk</div>
+          </div>
+
+          <div class="arrow-down">|</div>
+
+          <div class="arch-layer sdk">
+            <strong>SPYK SDK</strong>
+            <div class="arch-modules">
+              <span class="arch-module">x402 Payments</span>
+              <span class="arch-module">Privacy Cash</span>
+              <span class="arch-module">ShadowWire</span>
+              <span class="arch-module">Arcium MXE</span>
+              <span class="arch-module">Noir Proofs</span>
+              <span class="arch-module">Range</span>
+              <span class="arch-module">Helius + Quicknode</span>
+            </div>
+          </div>
+
+          <div class="arrow-down">|</div>
+
+          <div class="arch-layer solana">
+            <strong>SOLANA</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 6: Sponsor Integrations -->
+      <section>
+        <h2>Sponsor Integrations</h2>
+        <div class="sponsor-content">
+          <div class="sponsor-categories">
+            <div class="sponsor-cat">
+              <div class="sponsor-cat-title">Privacy Layer</div>
+              <div class="sponsor-cat-items">
+                <div class="sponsor-item"><span class="name">Privacy Cash</span><span class="desc">ZK shielded pool (SOL/USDC)</span></div>
+                <div class="sponsor-item"><span class="name">ShadowWire</span><span class="desc">Ephemeral addresses (20+ tokens)</span></div>
+              </div>
+            </div>
+            <div class="sponsor-cat">
+              <div class="sponsor-cat-title">Compliance & Proofs</div>
+              <div class="sponsor-cat-items">
+                <div class="sponsor-item"><span class="name">Noir/Aztec</span><span class="desc">ZK proofs via Sunspot (Groth16)</span></div>
+                <div class="sponsor-item"><span class="name">Range</span><span class="desc">OFAC compliance screening</span></div>
+              </div>
+            </div>
+            <div class="sponsor-cat">
+              <div class="sponsor-cat-title">Encrypted DeFi</div>
+              <div class="sponsor-cat-items">
+                <div class="sponsor-item"><span class="name">Arcium</span><span class="desc">Private swaps & lending (MXE)</span></div>
+              </div>
+            </div>
+            <div class="sponsor-cat">
+              <div class="sponsor-cat-title">Infrastructure</div>
+              <div class="sponsor-cat-items">
+                <div class="sponsor-item"><span class="name">Helius</span><span class="desc">RPC provider</span></div>
+                <div class="sponsor-item"><span class="name">Quicknode</span><span class="desc">Multi-provider redundancy</span></div>
+              </div>
+            </div>
+          </div>
+
+          <p class="sponsor-summary">7 integrations → 1 unified SDK</p>
+        </div>
+      </section>
+
+      <!-- SLIDE 7: Code Example -->
+      <section>
+        <h2>Simple to Use</h2>
+        <div class="code-content">
+          <pre><code class="language-typescript">// 3 lines to private AI payment
+
+import { Spyk } from '@spyk-protocol/sdk';
+
+const spyk = await Spyk.initialize({
+  heliusApiKey: process.env.HELIUS_KEY
+});
+
+// Shield funds privately
+await spyk.shield(1.0, 'SOL');
+
+// Pay API with zero wallet linkage
+await spyk.payPrivately('https://api.claude.ai', 0.01);</code></pre>
+
+          <p class="code-note">That's it. Private. Compliant. Simple.</p>
+        </div>
+      </section>
+
+      <!-- SLIDE 8: What's Real -->
+      <section>
+        <h2>What's Working Today</h2>
+        <div class="status-content">
+          <table class="status-table">
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Status</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>x402 Payments</td>
+                <td class="status-real">> REAL</td>
+                <td>Devnet TXs, Solscan links</td>
+              </tr>
+              <tr>
+                <td>Noir ZK Proofs</td>
+                <td class="status-real">> REAL</td>
+                <td>388-byte Groth16, verified</td>
+              </tr>
+              <tr>
+                <td>ShadowWire</td>
+                <td class="status-real">> REAL</td>
+                <td>Account checks on devnet</td>
+              </tr>
+              <tr>
+                <td>Arcium MXE</td>
+                <td class="status-real">> REAL</td>
+                <td>Client initializes</td>
+              </tr>
+              <tr>
+                <td>Privacy Cash</td>
+                <td class="status-sim">~ SIM</td>
+                <td>No devnet relayer (yet)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="status-note">All verifiable on Solana devnet explorer</p>
+        </div>
+      </section>
+
+      <!-- SLIDE 9: Roadmap -->
+      <section>
+        <h2>Roadmap</h2>
+        <div class="roadmap-content">
+          <div class="roadmap-grid">
+            <div class="roadmap-section">
+              <h4>NOW (Hackathon)</h4>
+              <ul>
+                <li class="done">Private payments (x402)</li>
+                <li class="done">Noir ZK proofs (Groth16)</li>
+                <li class="done">7 sponsor integrations</li>
+                <li class="done">MCP Server + SDK</li>
+              </ul>
+            </div>
+
+            <div class="roadmap-section">
+              <h4>NEXT</h4>
+              <ul>
+                <li>On-chain proof verification</li>
+                <li>SPYK Privacy Wallet</li>
+                <li>NPM package release</li>
+              </ul>
+            </div>
+
+            <div class="roadmap-section">
+              <h4>FUTURE</h4>
+              <ul>
+                <li>Privacy Cash mainnet</li>
+                <li>Multi-chain support</li>
+                <li>AI agent marketplace</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 10: Closing -->
+      <section class="center closing-slide">
+        <img src="../assets/logo/logo-white.png" alt="SPYK Protocol" class="logo">
+        <h1>SPYK PROTOCOL</h1>
+        <p class="subtitle">The Privacy Layer for AI Agents on Solana</p>
+
+        <div class="cta-box">npm install @spyk-protocol/sdk</div>
+
+        <p class="github">github.com/spyk-protocol</p>
+
+        <p class="closing-tagline">Shield your funds. Pay privately. Stay invisible.</p>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      slideNumber: 'c/t',
+      transition: 'fade',
+      transitionSpeed: 'fast',
+      plugins: [ RevealHighlight ],
+      width: 1280,
+      height: 720,
+      margin: 0.04,
+      center: false
+    });
+  </script>
+</body>
+</html>

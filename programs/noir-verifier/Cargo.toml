@@ -1,0 +1,20 @@
+[package]
+name = "noir-verifier"
+version = "0.1.0"
+description = "Noir ZK Proof Verifier for Spyk Protocol"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "noir_verifier"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "0.32.1"

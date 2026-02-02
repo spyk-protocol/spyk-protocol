@@ -1,0 +1,14 @@
+{
+  "name": "spyk-protocol",
+  "private": true,
+  "description": "SPYK Protocol - Unified Privacy SDK for Solana",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "dev:sdk": "pnpm --filter @spyk-protocol/sdk dev",
+    "dev:demo": "pnpm --filter @spyk-protocol/demo dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Build artifacts
+target/
+
+# Cache
+cache/
+**/cache/
+
+# Internal docs (not for public)
+DEMO_SCRIPT.md
+VIDEO_RECORDING_GUIDE.md
+QUICK_DEMO.md
+SUBMISSION_GUIDE.md
+DEMO_GUIDE.md
+DEMO_CHECKLIST.md
+
+# Serena
+.serena/
+
+# MCP config
+.mcp.json

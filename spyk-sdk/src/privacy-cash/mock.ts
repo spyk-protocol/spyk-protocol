@@ -6,6 +6,8 @@
  */
 
 import { Connection, PublicKey, Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction, sendAndConfirmTransaction, TransactionInstruction } from '@solana/web3.js';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   createTransferInstruction,
   getAssociatedTokenAddress,
@@ -39,8 +41,48 @@ const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfc
 // Faucet: https://faucet.circle.com/ (20 USDC per 2 hours)
 const USDC_DEVNET_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
-// In-memory mock balances (per wallet)
-const mockBalances = new Map<string, { SOL: bigint; USDC: bigint }>();
+// File-based mock balances for persistence across CLI invocations
+const BALANCE_FILE = path.join(process.cwd(), 'cache', 'mock-balances.json');
+
+// Ensure cache directory exists
+function ensureCacheDir(): void {
+  const cacheDir = path.dirname(BALANCE_FILE);
+  if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+  }
+}
+
+// Load balances from file
+function loadBalancesFromFile(): Map<string, { SOL: bigint; USDC: bigint }> {
+  ensureCacheDir();
+  try {
+    if (fs.existsSync(BALANCE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(BALANCE_FILE, 'utf-8'));
+      const map = new Map<string, { SOL: bigint; USDC: bigint }>();
+      for (const [key, value] of Object.entries(data)) {
+        const v = value as { SOL: string; USDC: string };
+        map.set(key, { SOL: BigInt(v.SOL), USDC: BigInt(v.USDC) });
+      }
+      return map;
+    }
+  } catch (e) {
+    // Ignore errors, start fresh
+  }
+  return new Map();
+}
+
+// Save balances to file
+function saveBalancesToFile(balances: Map<string, { SOL: bigint; USDC: bigint }>): void {
+  ensureCacheDir();
+  const obj: Record<string, { SOL: string; USDC: string }> = {};
+  for (const [key, value] of balances.entries()) {
+    obj[key] = { SOL: value.SOL.toString(), USDC: value.USDC.toString() };
+  }
+  fs.writeFileSync(BALANCE_FILE, JSON.stringify(obj, null, 2));
+}
+
+// File-persisted mock balances (per wallet)
+const mockBalances = loadBalancesFromFile();
 
 // ============================================
 // Console Colors for Demo Visibility
@@ -302,6 +344,8 @@ ${this.c('cyan', '╚═══════════════════�
     const balance = this.getMockBalance();
     balance[token] = amount;
     mockBalances.set(this.walletKey, balance);
+    // Persist to file for cross-process state
+    saveBalancesToFile(mockBalances);
   }
 
   // ============================================
